@@ -34,8 +34,8 @@ class TelegramBotTester:
             response = requests.get(f"{self.base_url}/", timeout=10)
             if response.status_code == 200:
                 data = response.json()
-                if data.get("Status") == "Active":
-                    return self.log_test("Express Server Health", True, f"- Status: {data['Status']}")
+                if data.get("status") == "Active":
+                    return self.log_test("Express Server Health", True, f"- Status: {data['status']}")
                 else:
                     return self.log_test("Express Server Health", False, f"- Unexpected response: {data}")
             else:
