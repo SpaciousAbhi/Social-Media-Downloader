@@ -110,7 +110,7 @@ class TelegramBotTester:
     def test_env_configuration(self):
         """Check if .env file has required configuration"""
         try:
-            with open('/app/.env', 'r') as f:
+            with open('/app/env', 'r') as f:
                 env_content = f.read()
             
             has_token = 'TOKEN=' in env_content and len(env_content.split('TOKEN=')[1].split('\n')[0].strip()) > 10
