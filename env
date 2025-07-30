@@ -1,7 +1,5 @@
 TOKEN=7798265687:AAFvdltAgNn16bu-12obdqIJdws-bRvMwhM
 DEV_ID=1654334233
-NODE_ENV=development
-USE_WEBHOOK=false
-# For Heroku deployment, set:
-# NODE_ENV=production
-# HEROKU_URL=https://your-app-name.herokuapp.com
+NODE_ENV=production
+USE_WEBHOOK=true
+HEROKU_URL=https://your-app-name.herokuapp.com
