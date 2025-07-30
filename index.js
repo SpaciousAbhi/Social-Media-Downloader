@@ -1,6 +1,6 @@
 /* required to disable the deprecation warning, 
 will be fixed when node-telegram-bot-api gets a new update */
-require('dotenv').config()
+require('dotenv').config({ path: './env' })
 process.env['NTBA_FIX_350'] = 1
 let express = require('express');
 let app = express();
