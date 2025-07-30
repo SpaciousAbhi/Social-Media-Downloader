@@ -12,7 +12,7 @@ import json
 from datetime import datetime
 
 class TelegramBotTester:
-    def __init__(self, base_url="http://localhost:5000"):
+    def __init__(self, base_url="https://iiiiiiiiiiiiiiiiiiiiiiiiiiiiii.herokuapp.com"):
         self.base_url = base_url
         self.tests_run = 0
         self.tests_passed = 0
