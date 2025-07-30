@@ -80,9 +80,31 @@ let userLocks = {};
 let userLocksText = {};
 let userLocksImage = {}
 let token = process.env.TOKEN
+if (!token) {
+  console.error('FATAL ERROR: Telegram Bot Token not provided in environment variables!');
+  process.exit(1);
+}
+
 let bot = new TelegramBot(token, {
-  polling: true
-})
+  polling: {
+    interval: 300,
+    autoStart: true,
+    params: {
+      timeout: 10
+    }
+  }
+});
+
+// Handle polling errors
+bot.on('polling_error', (error) => {
+  console.error('Polling error:', error.message);
+  // Don't exit the process, just log the error
+});
+
+// Handle webhook errors  
+bot.on('webhook_error', (error) => {
+  console.error('Webhook error:', error.message);
+});
 // Bot Settings
 let botName = 'Krxuv Bot';
 app.get('/', async (req, res) => {
