@@ -1,11 +1,17 @@
-/* required to disable the deprecation warning, 
-will be fixed when node-telegram-bot-api gets a new update */
+/* Enhanced Telegram Bot with Modern UI/UX
+ * Upgraded with comprehensive improvements for better user experience
+ */
 require('dotenv').config({ path: './env' })
 process.env['NTBA_FIX_350'] = 1
+
 let express = require('express');
 let app = express();
 let TelegramBot = require('node-telegram-bot-api')
 let fs = require('fs')
+
+// Import UI/UX enhancement modules
+const BotUI = require('./funcs/ui-helpers');
+const ProgressTracker = require('./funcs/progress-tracker');
 let {
   getTiktokInfo,
   tiktokVideo,
