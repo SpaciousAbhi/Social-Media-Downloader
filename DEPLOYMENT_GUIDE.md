@@ -4,7 +4,7 @@
 
 ### 1. Missing Environment Variables
 - **Problem**: Bot couldn't find TOKEN environment variable
-- **Solution**: Created `.env` file with proper TOKEN and DEV_ID
+- **Solution**: Created visible `env` file with proper TOKEN and DEV_ID
 
 ### 2. Port Binding Issue  
 - **Problem**: Hardcoded port 5000 caused Heroku R10 timeout errors
@@ -18,17 +18,10 @@
 
 ### For Heroku Deployment:
 
-1. **Set Environment Variables** in Heroku Dashboard:
-   ```
-   TOKEN=7798265687:AAFvdltAgNn16bu-12obdqIJdws-bRvMwhM
-   DEV_ID=1654334233
-   NODE_ENV=production
-   HEROKU_URL=https://your-app-name.herokuapp.com
-   ```
-
-2. **Update HEROKU_URL** with your actual Heroku app URL
-
-3. **Deploy**: The bot will automatically use webhook mode for production
+1. **The environment variables are in the visible `env` file** in the repository
+2. **Update HEROKU_URL** in the `env` file with your actual Heroku app URL
+3. **Set NODE_ENV=production** in the `env` file for production
+4. **Deploy**: The bot will automatically use webhook mode for production
 
 ### For Local Development:
 
@@ -44,6 +37,7 @@
 
 ## 🔧 Configuration
 
+**Environment variables are stored in the visible `env` file:**
 - **Token**: `7798265687:AAFvdltAgNn16bu-12obdqIJdws-bRvMwhM`
 - **Admin ID**: `1654334233`
 - **Bot Name**: Instagram Automation Bot (@VS_Instagram_Automation_Bot)
@@ -90,7 +84,7 @@ node health-check.js
 ```
 
 This will verify:
-- Environment variables are set
+- Environment variables are set (from visible `env` file)
 - Bot token is valid
 - Server can start properly
 
@@ -100,3 +94,7 @@ The bot automatically detects production environment and switches to webhook mod
 
 **Local Mode**: Uses polling (good for development)
 **Production Mode**: Uses webhooks (required for Heroku)
+
+## 📁 Environment Variables
+
+All environment variables are now stored in the **visible `env` file** in the repository root, making them easy to see and modify without dealing with hidden files.
