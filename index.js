@@ -85,9 +85,11 @@ if (!token) {
   process.exit(1);
 }
 
+console.log('Initializing Telegram Bot...');
+
 let bot = new TelegramBot(token, {
   polling: {
-    interval: 300,
+    interval: 1000,
     autoStart: true,
     params: {
       timeout: 10
@@ -95,15 +97,41 @@ let bot = new TelegramBot(token, {
   }
 });
 
-// Handle polling errors
+// Handle polling errors with retry logic
+let retryCount = 0;
+const maxRetries = 10;
+
 bot.on('polling_error', (error) => {
   console.error('Polling error:', error.message);
-  // Don't exit the process, just log the error
+  
+  if (error.message.includes('409 Conflict')) {
+    retryCount++;
+    if (retryCount <= maxRetries) {
+      console.log(`Retrying in ${retryCount * 2} seconds... (attempt ${retryCount}/${maxRetries})`);
+      setTimeout(() => {
+        try {
+          bot.startPolling({ restart: true });
+        } catch (e) {
+          console.log('Retry failed:', e.message);
+        }
+      }, retryCount * 2000);
+    } else {
+      console.log('Max retries reached. Bot will continue to run with limited functionality.');
+    }
+  }
 });
 
 // Handle webhook errors  
 bot.on('webhook_error', (error) => {
   console.error('Webhook error:', error.message);
+});
+
+// Success handler
+bot.on('message', (msg) => {
+  if (retryCount > 0) {
+    console.log('Bot polling restored successfully!');
+    retryCount = 0;
+  }
 });
 // Bot Settings
 let botName = 'Krxuv Bot';
