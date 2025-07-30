@@ -87,52 +87,79 @@ if (!token) {
 
 console.log('Initializing Telegram Bot...');
 
-let bot = new TelegramBot(token, {
-  polling: {
-    interval: 1000,
-    autoStart: true,
-    params: {
-      timeout: 10
-    }
-  }
-});
+// Determine if we should use webhooks (for Heroku) or polling (for local)
+const useWebhook = process.env.NODE_ENV === 'production' || process.env.USE_WEBHOOK === 'true';
+const webhookUrl = process.env.HEROKU_URL ? `${process.env.HEROKU_URL}/bot${token}` : null;
 
-// Handle polling errors with retry logic
-let retryCount = 0;
-const maxRetries = 10;
+let bot;
 
-bot.on('polling_error', (error) => {
-  console.error('Polling error:', error.message);
+if (useWebhook && webhookUrl) {
+  // Webhook mode for production
+  console.log('🌐 Using webhook mode for production...');
+  bot = new TelegramBot(token);
   
-  if (error.message.includes('409 Conflict')) {
-    retryCount++;
-    if (retryCount <= maxRetries) {
-      console.log(`Retrying in ${retryCount * 2} seconds... (attempt ${retryCount}/${maxRetries})`);
-      setTimeout(() => {
-        try {
-          bot.startPolling({ restart: true });
-        } catch (e) {
-          console.log('Retry failed:', e.message);
-        }
-      }, retryCount * 2000);
-    } else {
-      console.log('Max retries reached. Bot will continue to run with limited functionality.');
+  // Configure Express to handle webhooks
+  app.use(express.json());
+  app.post(`/bot${token}`, (req, res) => {
+    bot.processUpdate(req.body);
+    res.sendStatus(200);
+  });
+  
+  // Set webhook
+  bot.setWebHook(webhookUrl)
+    .then(() => {
+      console.log(`✅ Webhook set to: ${webhookUrl}`);
+    })
+    .catch(err => {
+      console.error('❌ Webhook setup failed:', err.message);
+      console.log('Falling back to polling...');
+      startPolling();
+    });
+} else {
+  // Polling mode for development
+  console.log('🔄 Using polling mode...');
+  startPolling();
+}
+
+function startPolling() {
+  bot = new TelegramBot(token, {
+    polling: {
+      interval: 1000,
+      autoStart: true,
+      params: {
+        timeout: 10
+      }
     }
-  }
-});
+  });
 
-// Handle webhook errors  
-bot.on('webhook_error', (error) => {
-  console.error('Webhook error:', error.message);
-});
+  // Handle polling errors with retry logic
+  let retryCount = 0;
+  const maxRetries = 5;
 
-// Success handler
-bot.on('message', (msg) => {
-  if (retryCount > 0) {
-    console.log('Bot polling restored successfully!');
-    retryCount = 0;
-  }
-});
+  bot.on('polling_error', (error) => {
+    console.error('Polling error:', error.message);
+    
+    if (error.message.includes('409 Conflict')) {
+      retryCount++;
+      if (retryCount <= maxRetries) {
+        console.log(`🔄 Telegram server conflict detected. Waiting ${retryCount * 5} seconds before retry... (${retryCount}/${maxRetries})`);
+        setTimeout(() => {
+          try {
+            bot.stopPolling();
+            setTimeout(() => {
+              bot.startPolling({ restart: true });
+            }, 2000);
+          } catch (e) {
+            console.log('Retry failed:', e.message);
+          }
+        }, retryCount * 5000);
+      } else {
+        console.log('⚠️  Max retries reached. Bot will continue with limited functionality.');
+        console.log('💡 Try restarting the application in a few minutes.');
+      }
+    }
+  });
+}
 // Bot Settings
 let botName = 'Krxuv Bot';
 app.get('/', async (req, res) => {
