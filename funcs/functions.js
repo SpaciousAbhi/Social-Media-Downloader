@@ -32,10 +32,20 @@ function htmlToText(html) {
   return $.text();
 }
 
+// Ban management function - currently allows all users
+async function getBanned(userId) {
+  // For now, allow all users (no ban system)
+  // You can later implement a proper ban system by checking against a ban database
+  return {
+    status: true,  // true means user is NOT banned
+    reason: null
+  };
+}
 
 module.exports = {
   getBuffer,
   htmlToText,
   filterAlphanumericWithDash,
-  getRandom
+  getRandom,
+  getBanned
 }
