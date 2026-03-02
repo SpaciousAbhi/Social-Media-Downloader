@@ -6,7 +6,21 @@ const { htmlToText, getBuffer, filterAlphanumericWithDash } = require('./functio
 const { Y2MateClient } = require('y2mate-api');
 const client = new Y2MateClient();
 
+function normalizeYouTubeUrl(input) {
+  try {
+    // Extract video id from common formats
+    const m = String(input).match(/(?:v=|\/)([\w-]{11})(?:\?|&|$)/);
+    const id = m ? m[1] : null;
+    if (!id) return input;
+    return `https://www.youtube.com/watch?v=${id}`;
+  } catch {
+    return input;
+  }
+}
+
 async function getYoutube(bot, chatId, url, userName) {
+  url = normalizeYouTubeUrl(url)
+
   let load = await bot.sendMessage(chatId, 'Loading, please wait.');
   let data = [];
   try {
@@ -55,7 +69,7 @@ async function getYoutube(bot, chatId, url, userName) {
 async function getYoutubeVideo(bot, chatId, id, ind, userName) {
   let load = await bot.sendMessage(chatId, 'Loading, please wait.')
   try {
-    let get = await client.getFromURL('https://www.youtube.com/'+id, 'vi');
+    let get = await client.getFromURL('https://www.youtube.com/watch?v='+id, 'vi');
     let res = await get.linksVideo.get(ind).fetch();
     let getsize = get.linksVideo.get(ind).size;
     let size = Math.floor(getsize.replace(' MB', ''));
@@ -78,7 +92,7 @@ async function getYoutubeVideo(bot, chatId, id, ind, userName) {
 async function getYoutubeAudio(bot, chatId, id, ind, userName) {
   let load = await bot.sendMessage(chatId, 'Loading, please wait.')
   try {
-    let get = await client.getFromURL('https://www.youtube.com/'+id, 'vi');
+    let get = await client.getFromURL('https://www.youtube.com/watch?v='+id, 'vi');
     let res = await get.linksAudio.get(ind).fetch();
     let getsize = get.linksAudio.get(ind).size;
     let size = Math.floor(getsize.replace(' MB', ''));

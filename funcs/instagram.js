@@ -7,7 +7,8 @@ const { getBuffer, getRandom } = require('./functions')
 
 async function igdl(url) {
   try {
-    let { data } = await axios.get(`https://krxuv-api.vercel.app/api/instagram?apikey=Krxuvonly&url=${url}`);
+    const encUrl = encodeURIComponent(url);
+    let { data } = await axios.get(`https://krxuv-api.vercel.app/api/instagram?apikey=Krxuvonly&url=${encUrl}`);
     return data.results
   } catch (err) {
     return err
