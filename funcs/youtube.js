@@ -74,7 +74,8 @@ async function getYoutubeVideo(bot, chatId, id, _ind, userName) {
       fallbackDetail = 'yt-dlp fallback downloaded but file >49MB';
       if (fs.existsSync(f)) fs.unlinkSync(f);
     } catch (e2) {
-      fallbackDetail = (e2 && e2.stack) ? String(e2.stack) : String(e2);
+      const util = require('util');
+      fallbackDetail = (e2 && e2.stack) ? String(e2.stack) : (e2 && e2.message ? String(e2.message) : util.inspect(e2, { depth: 3 }));
     }
 
     const detail = (err && err.stack) ? String(err.stack) : String(err);
@@ -125,7 +126,8 @@ async function getYoutubeAudio(bot, chatId, id, _ind, userName) {
       fallbackDetail = 'yt-dlp fallback downloaded but file >49MB';
       if (fs.existsSync(f)) fs.unlinkSync(f);
     } catch (e2) {
-      fallbackDetail = (e2 && e2.stack) ? String(e2.stack) : String(e2);
+      const util = require('util');
+      fallbackDetail = (e2 && e2.stack) ? String(e2.stack) : (e2 && e2.message ? String(e2.message) : util.inspect(e2, { depth: 3 }));
     }
 
     const detail = (err && err.stack) ? String(err.stack) : String(err);

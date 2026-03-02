@@ -54,10 +54,12 @@ async function runYtDlp(args) {
     }
     return stdout;
   } catch (err) {
+    const util = require('util');
     const stderr = err && err.stderr ? String(err.stderr) : '';
     const stdout = err && err.stdout ? String(err.stdout) : '';
     const msg = err && err.message ? String(err.message) : String(err);
-    throw new Error([`yt-dlp failed: ${msg}`, stdout && `stdout: ${stdout.slice(0, 2000)}`, stderr && `stderr: ${stderr.slice(0, 4000)}`].filter(Boolean).join("\n"));
+    const dump = util.inspect(err, { depth: 3 }).slice(0, 1200);
+    throw new Error([`yt-dlp failed: ${msg}`, stdout && `stdout: ${stdout.slice(0, 2000)}`, stderr && `stderr: ${stderr.slice(0, 4000)}`, `raw: ${dump}`].filter(Boolean).join("\n"));
   }
 }
 
