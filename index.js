@@ -79,7 +79,14 @@ let {
 let userLocks = {};
 let userLocksText = {};
 let userLocksImage = {}
-let token = process.env.TOKEN
+// Token
+// Prefer TELEGRAM_BOT_TOKEN (Heroku-friendly), fallback to TOKEN for backward compatibility.
+let token = process.env.TELEGRAM_BOT_TOKEN || process.env.TOKEN
+if (!token) {
+  console.error('Missing TELEGRAM_BOT_TOKEN (or TOKEN) environment variable')
+  process.exit(1)
+}
+
 let bot = new TelegramBot(token, {
   polling: true
 })
@@ -91,8 +98,9 @@ app.get('/', async (req, res) => {
   })
 })
 
-app.listen(5000, function () {});
-console.log('Bot is running...')
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, function () {});
+console.log(`Bot is running... HTTP server on :${PORT}`)
 
 bot.on('photo', async (msg) => {
   let chatId = msg.chat.id;
