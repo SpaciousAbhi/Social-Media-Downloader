@@ -23,17 +23,32 @@ async function ensureYtDlpBinary() {
   fs.mkdirSync(dir, { recursive: true });
   const binPath = path.join(dir, 'yt-dlp');
   if (fs.existsSync(binPath)) return binPath;
+  // yt-dlp-wrap v2+ doesn't expose getYtDlpBinary(); instead we download from GitHub.
   const wrapper = new YtDlpWrap();
-  // Downloads the platform binary into the cwd by default; we move it.
-  const downloaded = await wrapper.getYtDlpBinary();
-  fs.copyFileSync(downloaded, binPath);
+  const platform = process.platform;
+  const arch = process.arch;
+  const isWin = platform === 'win32';
+  const isMac = platform === 'darwin';
+  const isLinux = platform === 'linux';
+
+  let asset = null;
+  if (isWin) asset = 'yt-dlp.exe';
+  else if (isMac) asset = 'yt-dlp_macos';
+  else if (isLinux && arch === 'x64') asset = 'yt-dlp_linux';
+  else if (isLinux && (arch === 'arm64' || arch === 'aarch64')) asset = 'yt-dlp_linux_aarch64';
+  else asset = 'yt-dlp_linux';
+
+  // downloadFromGithub(releaseTag, fileName, targetPath)
+  await YtDlpWrap.downloadFromGithub('latest', asset, binPath);
   fs.chmodSync(binPath, 0o755);
   return binPath;
 }
 
 async function runYtDlp(args) {
   const bin = await ensureYtDlpBinary();
-  const { stdout } = await execFileAsync(bin, args, { maxBuffer: 50 * 1024 * 1024 });
+  // Use yt-dlp-wrap for consistent spawning
+  const wrapper = new YtDlpWrap(bin);
+  const { stdout } = await wrapper.execPromise(args);
   return stdout;
 }
 
