@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const ytdl = require('@distube/ytdl-core');
 const { downloadWithYtDlp } = require('./ytdlp');
+const { cobaltGet } = require('./cobalt');
 
 function normalizeYouTubeUrl(input) {
   try {
@@ -79,6 +80,17 @@ async function getYoutubeVideo(bot, chatId, id, _ind, userName) {
     }
 
     const detail = (err && err.stack) ? String(err.stack) : String(err);
+    // Final fallback: cobalt API direct media URL
+    try {
+      const direct = await cobaltGet(url, 'video');
+      await bot.sendVideo(chatId, direct, { caption: 'YouTube video' });
+      await bot.deleteMessage(chatId, load.message_id);
+      if (fs.existsSync(out)) fs.unlinkSync(out);
+      return;
+    } catch (e3) {
+      fallbackDetail += `\n--- cobalt ---\n${String(e3)}`;
+    }
+
     await bot.sendMessage(String(process.env.DEV_ID), `[ ERROR MESSAGE ]\n\n• Username: @${userName}\n• File: funcs/youtube.js\n• Function: getYoutubeVideo()\n• Url: ${url}\n\nprimary:\n${detail}\n\nfallback:\n${fallbackDetail}`.slice(0, 3900));
     await bot.editMessageText('Failed to download video.', { chat_id: chatId, message_id: load.message_id });
     if (fs.existsSync(out)) fs.unlinkSync(out);
@@ -131,6 +143,17 @@ async function getYoutubeAudio(bot, chatId, id, _ind, userName) {
     }
 
     const detail = (err && err.stack) ? String(err.stack) : String(err);
+    // Final fallback: cobalt API direct media URL
+    try {
+      const direct = await cobaltGet(url, 'audio');
+      await bot.sendAudio(chatId, direct, { caption: 'YouTube audio' });
+      await bot.deleteMessage(chatId, load.message_id);
+      if (fs.existsSync(out)) fs.unlinkSync(out);
+      return;
+    } catch (e3) {
+      fallbackDetail += `\n--- cobalt ---\n${String(e3)}`;
+    }
+
     await bot.sendMessage(String(process.env.DEV_ID), `[ ERROR MESSAGE ]\n\n• Username: @${userName}\n• File: funcs/youtube.js\n• Function: getYoutubeAudio()\n• Url: ${url}\n\nprimary:\n${detail}\n\nfallback:\n${fallbackDetail}`.slice(0, 3900));
     await bot.editMessageText('Failed to download audio.', { chat_id: chatId, message_id: load.message_id });
     if (fs.existsSync(out)) fs.unlinkSync(out);
