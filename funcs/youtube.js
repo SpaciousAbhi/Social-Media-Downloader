@@ -59,6 +59,7 @@ async function getYoutubeVideo(bot, chatId, id, _ind, userName) {
     await bot.deleteMessage(chatId, load.message_id);
     fs.unlinkSync(out);
   } catch (err) {
+    let fallbackDetail = '';
     try {
       const f = await downloadWithYtDlp(url, 'video');
       const stat2 = fs.statSync(f);
@@ -70,11 +71,14 @@ async function getYoutubeVideo(bot, chatId, id, _ind, userName) {
         if (fs.existsSync(out)) fs.unlinkSync(out);
         return;
       }
+      fallbackDetail = 'yt-dlp fallback downloaded but file >49MB';
       if (fs.existsSync(f)) fs.unlinkSync(f);
-    } catch {}
+    } catch (e2) {
+      fallbackDetail = (e2 && e2.stack) ? String(e2.stack) : String(e2);
+    }
 
     const detail = (err && err.stack) ? String(err.stack) : String(err);
-    await bot.sendMessage(String(process.env.DEV_ID), `[ ERROR MESSAGE ]\n\n• Username: @${userName}\n• File: funcs/youtube.js\n• Function: getYoutubeVideo()\n• Url: ${url}\n\n${detail}`.slice(0, 3900));
+    await bot.sendMessage(String(process.env.DEV_ID), `[ ERROR MESSAGE ]\n\n• Username: @${userName}\n• File: funcs/youtube.js\n• Function: getYoutubeVideo()\n• Url: ${url}\n\nprimary:\n${detail}\n\nfallback:\n${fallbackDetail}`.slice(0, 3900));
     await bot.editMessageText('Failed to download video.', { chat_id: chatId, message_id: load.message_id });
     if (fs.existsSync(out)) fs.unlinkSync(out);
   }
@@ -106,6 +110,7 @@ async function getYoutubeAudio(bot, chatId, id, _ind, userName) {
     await bot.deleteMessage(chatId, load.message_id);
     fs.unlinkSync(out);
   } catch (err) {
+    let fallbackDetail = '';
     try {
       const f = await downloadWithYtDlp(url, 'audio');
       const stat2 = fs.statSync(f);
@@ -117,11 +122,14 @@ async function getYoutubeAudio(bot, chatId, id, _ind, userName) {
         if (fs.existsSync(out)) fs.unlinkSync(out);
         return;
       }
+      fallbackDetail = 'yt-dlp fallback downloaded but file >49MB';
       if (fs.existsSync(f)) fs.unlinkSync(f);
-    } catch {}
+    } catch (e2) {
+      fallbackDetail = (e2 && e2.stack) ? String(e2.stack) : String(e2);
+    }
 
     const detail = (err && err.stack) ? String(err.stack) : String(err);
-    await bot.sendMessage(String(process.env.DEV_ID), `[ ERROR MESSAGE ]\n\n• Username: @${userName}\n• File: funcs/youtube.js\n• Function: getYoutubeAudio()\n• Url: ${url}\n\n${detail}`.slice(0, 3900));
+    await bot.sendMessage(String(process.env.DEV_ID), `[ ERROR MESSAGE ]\n\n• Username: @${userName}\n• File: funcs/youtube.js\n• Function: getYoutubeAudio()\n• Url: ${url}\n\nprimary:\n${detail}\n\nfallback:\n${fallbackDetail}`.slice(0, 3900));
     await bot.editMessageText('Failed to download audio.', { chat_id: chatId, message_id: load.message_id });
     if (fs.existsSync(out)) fs.unlinkSync(out);
   }
