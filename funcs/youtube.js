@@ -55,7 +55,7 @@ async function getYoutubeVideo(bot, chatId, id, ind, userName) {
     await bot.deleteMessage(chatId, load.message_id)
     require('fs').unlinkSync(filePath)
   } catch (err) {
-    const detail = (err && err.stack) ? err.stack : (typeof err === 'string' ? err : JSON.stringify(err, null, 2))
+    const detail = (err && err.stack) ? String(err.stack) : (err && err.message) ? String(err.message) : String(err)
     await bot.sendMessage(String(process.env.DEV_ID), `[ ERROR MESSAGE ]
 
 • Username: @${userName}
@@ -83,7 +83,7 @@ async function getYoutubeAudio(bot, chatId, id, ind, userName) {
     await bot.deleteMessage(chatId, load.message_id)
     require('fs').unlinkSync(filePath)
   } catch (err) {
-    const detail = (err && err.stack) ? err.stack : (typeof err === 'string' ? err : JSON.stringify(err, null, 2))
+    const detail = (err && err.stack) ? String(err.stack) : (err && err.message) ? String(err.message) : String(err)
     await bot.sendMessage(String(process.env.DEV_ID), `[ ERROR MESSAGE ]
 
 • Username: @${userName}
