@@ -26,6 +26,7 @@
   },
   "homepage": "https://github.com/Krxuv/Social-Media-Downloader#readme",
   "dependencies": {
+    "@distube/ytdl-core": "^4.16.12",
     "axios": "^1.5.0",
     "cheerio": "^1.0.0-rc.12",
     "dotenv": "^16.3.1",

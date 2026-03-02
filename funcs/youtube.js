@@ -1,7 +1,7 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
-const ytdl = require('ytdl-core');
+const ytdl = require('@distube/ytdl-core');
 
 function normalizeYouTubeUrl(input) {
   try {
