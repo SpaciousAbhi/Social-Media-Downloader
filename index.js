@@ -94,6 +94,24 @@ if (!token) {
 let bot = new TelegramBot(token, {
   polling: true
 })
+
+// Basic logging / diagnostics
+process.on('unhandledRejection', (err) => {
+  console.error('unhandledRejection', err)
+})
+process.on('uncaughtException', (err) => {
+  console.error('uncaughtException', err)
+})
+
+bot.on('message', async (msg) => {
+  try {
+    const text = msg.text || ''
+    console.log(`[message] from=${msg.from?.id} chat=${msg.chat?.id} text=${text.slice(0, 200)}`)
+  } catch (e) {
+    console.error('log_message_error', e)
+  }
+})
+
 // Bot Settings
 let botName = 'Krxuv Bot';
 app.get('/', async (req, res) => {
