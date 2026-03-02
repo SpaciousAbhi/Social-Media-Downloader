@@ -18,6 +18,10 @@
   ],
   "author": "Krxuv",
   "license": "MIT",
+  "engines": {
+    "node": "20.x"
+  },
+
   "bugs": {
     "url": "https://github.com/Krxuv/Social-Media-Downloader/issues"
   },
