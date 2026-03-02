@@ -30,9 +30,13 @@ let {
   pinterest,
   pinSearch
 } = require('./funcs/pinterest')
-let {
-  getBanned
-} = require('./funcs/functions')
+let { getBanned } = require('./funcs/functions')
+
+// Backward compatible: older versions of this repo didn't implement bans.
+// Provide a safe default so the bot doesn't crash.
+if (typeof getBanned !== 'function') {
+  getBanned = async () => ({ status: true, reason: null })
+}
 let {
   getYoutube,
   getYoutubeAudio,
@@ -79,10 +83,35 @@ let {
 let userLocks = {};
 let userLocksText = {};
 let userLocksImage = {}
-let token = process.env.TOKEN
+// Token
+// Prefer TELEGRAM_BOT_TOKEN (Heroku-friendly), fallback to TOKEN for backward compatibility.
+let token = process.env.TELEGRAM_BOT_TOKEN || process.env.TOKEN
+if (!token) {
+  console.error('Missing TELEGRAM_BOT_TOKEN (or TOKEN) environment variable')
+  process.exit(1)
+}
+
 let bot = new TelegramBot(token, {
   polling: true
 })
+
+// Basic logging / diagnostics
+process.on('unhandledRejection', (err) => {
+  console.error('unhandledRejection', err)
+})
+process.on('uncaughtException', (err) => {
+  console.error('uncaughtException', err)
+})
+
+bot.on('message', async (msg) => {
+  try {
+    const text = msg.text || ''
+    console.log(`[message] from=${msg.from?.id} chat=${msg.chat?.id} text=${text.slice(0, 200)}`)
+  } catch (e) {
+    console.error('log_message_error', e)
+  }
+})
+
 // Bot Settings
 let botName = 'Krxuv Bot';
 app.get('/', async (req, res) => {
@@ -91,8 +120,9 @@ app.get('/', async (req, res) => {
   })
 })
 
-app.listen(5000, function () {});
-console.log('Bot is running...')
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, function () {});
+console.log(`Bot is running... HTTP server on :${PORT}`)
 
 bot.on('photo', async (msg) => {
   let chatId = msg.chat.id;
@@ -524,6 +554,20 @@ bot.on('callback_query', async (mil) => {
     let args = url.split(' ');
     await bot.deleteMessage(chatid, msgid);
     await getYoutubeAudio(bot, chatid, args[0], args[1], usrnm);
+
+  // New yt-dlp callbacks
+  } else if (data.startsWith('ytdlpv')) {
+    await bot.deleteMessage(chatid, msgid);
+    // url is the normalized YouTube URL
+    const m = String(url).match(/v=([\w-]{11})/);
+    const id = m ? m[1] : url;
+    await getYoutubeVideo(bot, chatid, id, null, usrnm);
+  } else if (data.startsWith('ytdlpa')) {
+    await bot.deleteMessage(chatid, msgid);
+    const m = String(url).match(/v=([\w-]{11})/);
+    const id = m ? m[1] : url;
+    await getYoutubeAudio(bot, chatid, id, null, usrnm);
+
   } else if (data.startsWith('tourl1')) {
     await bot.deleteMessage(chatid, msgid);
     await telegraphUpload(bot, chatid, url, usrnm);
