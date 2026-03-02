@@ -56,21 +56,22 @@ async function getYoutubeVideo(bot, chatId, id, ind, userName) {
     require('fs').unlinkSync(filePath)
   } catch (err) {
     const util = require('util')
-    let detail = (err && err.stack) ? String(err.stack)
-      : (err && err.message && typeof err.message === 'string') ? err.message
-      : util.inspect(err, { depth: 4 })
 
-    // Also log to Heroku logs
-    console.error('getYoutubeVideo_error', detail)
+    const redact = (s) => String(s)
+      // redact bot token if it appears in request URLs
+      .replace(/\/bot\d+:[^/\s]+\//g, '/bot<redacted>/')
 
-    await bot.sendMessage(String(process.env.DEV_ID), `[ ERROR MESSAGE ]
+    let detail = (err && err.stack) ? redact(err.stack)
+      : (err && err.message && typeof err.message === 'string') ? redact(err.message)
+      : redact(util.inspect(err, { depth: 4 }))
 
-• Username: @${userName}
-• File: funcs/youtube.js
-• Function: getYoutubeVideo()
-• Url: ${url}
+    // Telegram max message length is limited; keep logs readable.
+    const MAX = 3500
+    const shortDetail = detail.length > MAX ? (detail.slice(0, MAX) + `\n... (truncated ${detail.length - MAX} chars)`) : detail
 
-${detail}`.trim())
+    console.error('getYoutubeVideo_error', shortDetail)
+
+    await bot.sendMessage(String(process.env.DEV_ID), `[ ERROR MESSAGE ]\n\n• Username: @${userName}\n• File: funcs/youtube.js\n• Function: getYoutubeVideo()\n• Url: ${url}\n\n${shortDetail}`)
     await bot.editMessageText('Failed to download video.', { chat_id: chatId, message_id: load.message_id })
   }
 }
@@ -91,20 +92,20 @@ async function getYoutubeAudio(bot, chatId, id, ind, userName) {
     require('fs').unlinkSync(filePath)
   } catch (err) {
     const util = require('util')
-    let detail = (err && err.stack) ? String(err.stack)
-      : (err && err.message && typeof err.message === 'string') ? err.message
-      : util.inspect(err, { depth: 4 })
 
-    console.error('getYoutubeAudio_error', detail)
+    const redact = (s) => String(s)
+      .replace(/\/bot\d+:[^/\s]+\//g, '/bot<redacted>/')
 
-    await bot.sendMessage(String(process.env.DEV_ID), `[ ERROR MESSAGE ]
+    let detail = (err && err.stack) ? redact(err.stack)
+      : (err && err.message && typeof err.message === 'string') ? redact(err.message)
+      : redact(util.inspect(err, { depth: 4 }))
 
-• Username: @${userName}
-• File: funcs/youtube.js
-• Function: getYoutubeAudio()
-• Url: ${url}
+    const MAX = 3500
+    const shortDetail = detail.length > MAX ? (detail.slice(0, MAX) + `\n... (truncated ${detail.length - MAX} chars)`) : detail
 
-${detail}`.trim())
+    console.error('getYoutubeAudio_error', shortDetail)
+
+    await bot.sendMessage(String(process.env.DEV_ID), `[ ERROR MESSAGE ]\n\n• Username: @${userName}\n• File: funcs/youtube.js\n• Function: getYoutubeAudio()\n• Url: ${url}\n\n${shortDetail}`)
     await bot.editMessageText('Failed to download audio.', { chat_id: chatId, message_id: load.message_id })
   }
 }
