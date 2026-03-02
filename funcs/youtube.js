@@ -19,9 +19,12 @@ function normalizeYouTubeUrl(input) {
 }
 
 async function getYoutube(bot, chatId, url, userName) {
+  const originalUrl = url
   url = normalizeYouTubeUrl(url)
 
   let load = await bot.sendMessage(chatId, 'Loading, please wait.');
+  // Diagnostics (sent only to DEV_ID)
+  try { await bot.sendMessage(String(process.env.DEV_ID), `[YT] original=${originalUrl}\n[YT] normalized=${url}`.trim()) } catch {}
   let data = [];
   try {
     if (url.includes('music.youtube.com')) {
