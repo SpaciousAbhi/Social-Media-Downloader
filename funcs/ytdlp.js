@@ -18,19 +18,22 @@ function safeName(name) {
 }
 
 async function ensureYtDlpBinary() {
-  if (!YtDlpWrap) throw new Error('yt-dlp-wrap not installed');
+  // Prefer system package to avoid GitHub download/challenge issues.
+  const systemPath = '/usr/bin/yt-dlp';
+  if (fs.existsSync(systemPath)) return systemPath;
+
+  if (!YtDlpWrap) throw new Error('yt-dlp-wrap not installed and /usr/bin/yt-dlp missing');
   const dir = path.join(os.tmpdir(), 'yt-dlp-bin');
   fs.mkdirSync(dir, { recursive: true });
   const binPath = path.join(dir, 'yt-dlp');
   if (fs.existsSync(binPath)) return binPath;
-  // yt-dlp-wrap v2+ doesn't expose getYtDlpBinary(); instead we download from GitHub.
-  const wrapper = new YtDlpWrap();
+
+  // Last resort: download from GitHub.
   const platform = process.platform;
   const arch = process.arch;
   const isWin = platform === 'win32';
   const isMac = platform === 'darwin';
   const isLinux = platform === 'linux';
-
   let asset = null;
   if (isWin) asset = 'yt-dlp.exe';
   else if (isMac) asset = 'yt-dlp_macos';
@@ -38,7 +41,6 @@ async function ensureYtDlpBinary() {
   else if (isLinux && (arch === 'arm64' || arch === 'aarch64')) asset = 'yt-dlp_linux_aarch64';
   else asset = 'yt-dlp_linux';
 
-  // downloadFromGithub(releaseTag, fileName, targetPath)
   await YtDlpWrap.downloadFromGithub('latest', asset, binPath);
   fs.chmodSync(binPath, 0o755);
   return binPath;
@@ -76,6 +78,18 @@ async function downloadWithYtDlp(url, mode /* 'video'|'audio' */) {
     '--extractor-args', 'youtube:player_client=android,web',
     '-o', tmpl,
   ];
+
+  // Optional auth/cookie support for YouTube anti-bot checks.
+  const cookieFile = process.env.YT_COOKIES_FILE;
+  if (cookieFile) {
+    common.push('--cookies', cookieFile);
+  }
+
+  // Optional proxy support (hosted envs often need this for YouTube).
+  const proxy = process.env.YT_PROXY_URL;
+  if (proxy) {
+    common.push('--proxy', proxy);
+  }
 
   if (mode === 'audio') {
     await runYtDlp([
