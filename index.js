@@ -554,6 +554,20 @@ bot.on('callback_query', async (mil) => {
     let args = url.split(' ');
     await bot.deleteMessage(chatid, msgid);
     await getYoutubeAudio(bot, chatid, args[0], args[1], usrnm);
+
+  // New yt-dlp callbacks
+  } else if (data.startsWith('ytdlpv')) {
+    await bot.deleteMessage(chatid, msgid);
+    // url is the normalized YouTube URL
+    const m = String(url).match(/v=([\w-]{11})/);
+    const id = m ? m[1] : url;
+    await getYoutubeVideo(bot, chatid, id, null, usrnm);
+  } else if (data.startsWith('ytdlpa')) {
+    await bot.deleteMessage(chatid, msgid);
+    const m = String(url).match(/v=([\w-]{11})/);
+    const id = m ? m[1] : url;
+    await getYoutubeAudio(bot, chatid, id, null, usrnm);
+
   } else if (data.startsWith('tourl1')) {
     await bot.deleteMessage(chatid, msgid);
     await telegraphUpload(bot, chatid, url, usrnm);
