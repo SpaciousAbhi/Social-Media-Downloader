@@ -55,6 +55,7 @@ async function getYoutubeVideo(bot, chatId, id, ind, userName) {
     await bot.deleteMessage(chatId, load.message_id)
     require('fs').unlinkSync(filePath)
   } catch (err) {
+    const detail = (err && err.stack) ? err.stack : (typeof err === 'string' ? err : JSON.stringify(err, null, 2))
     await bot.sendMessage(String(process.env.DEV_ID), `[ ERROR MESSAGE ]
 
 • Username: @${userName}
@@ -62,7 +63,7 @@ async function getYoutubeVideo(bot, chatId, id, ind, userName) {
 • Function: getYoutubeVideo()
 • Url: ${url}
 
-${err}`.trim())
+${detail}`.trim())
     await bot.editMessageText('Failed to download video.', { chat_id: chatId, message_id: load.message_id })
   }
 }
@@ -82,6 +83,7 @@ async function getYoutubeAudio(bot, chatId, id, ind, userName) {
     await bot.deleteMessage(chatId, load.message_id)
     require('fs').unlinkSync(filePath)
   } catch (err) {
+    const detail = (err && err.stack) ? err.stack : (typeof err === 'string' ? err : JSON.stringify(err, null, 2))
     await bot.sendMessage(String(process.env.DEV_ID), `[ ERROR MESSAGE ]
 
 • Username: @${userName}
@@ -89,7 +91,7 @@ async function getYoutubeAudio(bot, chatId, id, ind, userName) {
 • Function: getYoutubeAudio()
 • Url: ${url}
 
-${err}`.trim())
+${detail}`.trim())
     await bot.editMessageText('Failed to download audio.', { chat_id: chatId, message_id: load.message_id })
   }
 }

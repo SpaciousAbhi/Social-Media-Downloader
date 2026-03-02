@@ -46,10 +46,19 @@ async function ensureYtDlpBinary() {
 
 async function runYtDlp(args) {
   const bin = await ensureYtDlpBinary();
-  // Use yt-dlp-wrap for consistent spawning
-  const wrapper = new YtDlpWrap(bin);
-  const { stdout } = await wrapper.execPromise(args);
-  return stdout;
+  try {
+    const { stdout, stderr } = await execFileAsync(bin, args, { maxBuffer: 50 * 1024 * 1024 });
+    if (stderr) {
+      // yt-dlp often writes progress to stderr; keep it for diagnostics.
+      return stdout + "\n" + stderr;
+    }
+    return stdout;
+  } catch (err) {
+    const stderr = err && err.stderr ? String(err.stderr) : '';
+    const stdout = err && err.stdout ? String(err.stdout) : '';
+    const msg = err && err.message ? String(err.message) : String(err);
+    throw new Error([`yt-dlp failed: ${msg}`, stdout && `stdout: ${stdout.slice(0, 2000)}`, stderr && `stderr: ${stderr.slice(0, 4000)}`].filter(Boolean).join("\n"));
+  }
 }
 
 async function downloadWithYtDlp(url, mode /* 'video'|'audio' */) {
