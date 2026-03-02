@@ -30,9 +30,13 @@ let {
   pinterest,
   pinSearch
 } = require('./funcs/pinterest')
-let {
-  getBanned
-} = require('./funcs/functions')
+let { getBanned } = require('./funcs/functions')
+
+// Backward compatible: older versions of this repo didn't implement bans.
+// Provide a safe default so the bot doesn't crash.
+if (typeof getBanned !== 'function') {
+  getBanned = async () => ({ status: true, reason: null })
+}
 let {
   getYoutube,
   getYoutubeAudio,
