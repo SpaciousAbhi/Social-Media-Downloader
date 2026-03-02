@@ -55,7 +55,14 @@ async function getYoutubeVideo(bot, chatId, id, ind, userName) {
     await bot.deleteMessage(chatId, load.message_id)
     require('fs').unlinkSync(filePath)
   } catch (err) {
-    const detail = (err && err.stack) ? String(err.stack) : (err && err.message) ? String(err.message) : String(err)
+    const util = require('util')
+    let detail = (err && err.stack) ? String(err.stack)
+      : (err && err.message && typeof err.message === 'string') ? err.message
+      : util.inspect(err, { depth: 4 })
+
+    // Also log to Heroku logs
+    console.error('getYoutubeVideo_error', detail)
+
     await bot.sendMessage(String(process.env.DEV_ID), `[ ERROR MESSAGE ]
 
 • Username: @${userName}
@@ -83,7 +90,13 @@ async function getYoutubeAudio(bot, chatId, id, ind, userName) {
     await bot.deleteMessage(chatId, load.message_id)
     require('fs').unlinkSync(filePath)
   } catch (err) {
-    const detail = (err && err.stack) ? String(err.stack) : (err && err.message) ? String(err.message) : String(err)
+    const util = require('util')
+    let detail = (err && err.stack) ? String(err.stack)
+      : (err && err.message && typeof err.message === 'string') ? err.message
+      : util.inspect(err, { depth: 4 })
+
+    console.error('getYoutubeAudio_error', detail)
+
     await bot.sendMessage(String(process.env.DEV_ID), `[ ERROR MESSAGE ]
 
 • Username: @${userName}
