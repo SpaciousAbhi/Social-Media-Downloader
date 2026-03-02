@@ -2,6 +2,7 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const ytdl = require('@distube/ytdl-core');
+const { downloadWithYtDlp } = require('./ytdlp');
 
 function normalizeYouTubeUrl(input) {
   try {
@@ -58,6 +59,20 @@ async function getYoutubeVideo(bot, chatId, id, _ind, userName) {
     await bot.deleteMessage(chatId, load.message_id);
     fs.unlinkSync(out);
   } catch (err) {
+    try {
+      const f = await downloadWithYtDlp(url, 'video');
+      const stat2 = fs.statSync(f);
+      const max2 = 49 * 1024 * 1024;
+      if (stat2.size <= max2) {
+        await bot.sendVideo(chatId, f, { caption: 'YouTube video' });
+        await bot.deleteMessage(chatId, load.message_id);
+        fs.unlinkSync(f);
+        if (fs.existsSync(out)) fs.unlinkSync(out);
+        return;
+      }
+      if (fs.existsSync(f)) fs.unlinkSync(f);
+    } catch {}
+
     const detail = (err && err.stack) ? String(err.stack) : String(err);
     await bot.sendMessage(String(process.env.DEV_ID), `[ ERROR MESSAGE ]\n\n• Username: @${userName}\n• File: funcs/youtube.js\n• Function: getYoutubeVideo()\n• Url: ${url}\n\n${detail}`.slice(0, 3900));
     await bot.editMessageText('Failed to download video.', { chat_id: chatId, message_id: load.message_id });
@@ -91,6 +106,20 @@ async function getYoutubeAudio(bot, chatId, id, _ind, userName) {
     await bot.deleteMessage(chatId, load.message_id);
     fs.unlinkSync(out);
   } catch (err) {
+    try {
+      const f = await downloadWithYtDlp(url, 'audio');
+      const stat2 = fs.statSync(f);
+      const max2 = 49 * 1024 * 1024;
+      if (stat2.size <= max2) {
+        await bot.sendAudio(chatId, f, { caption: 'YouTube audio' });
+        await bot.deleteMessage(chatId, load.message_id);
+        fs.unlinkSync(f);
+        if (fs.existsSync(out)) fs.unlinkSync(out);
+        return;
+      }
+      if (fs.existsSync(f)) fs.unlinkSync(f);
+    } catch {}
+
     const detail = (err && err.stack) ? String(err.stack) : String(err);
     await bot.sendMessage(String(process.env.DEV_ID), `[ ERROR MESSAGE ]\n\n• Username: @${userName}\n• File: funcs/youtube.js\n• Function: getYoutubeAudio()\n• Url: ${url}\n\n${detail}`.slice(0, 3900));
     await bot.editMessageText('Failed to download audio.', { chat_id: chatId, message_id: load.message_id });

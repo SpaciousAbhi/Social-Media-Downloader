@@ -67,21 +67,27 @@ async function downloadWithYtDlp(url, mode /* 'video'|'audio' */) {
 
   const tmpl = path.join(outDir, '%(title)s__%(id)s.%(ext)s');
 
+  const common = [
+    '--no-playlist',
+    '--retries', '3',
+    '--geo-bypass',
+    '--extractor-args', 'youtube:player_client=android,web',
+    '-o', tmpl,
+  ];
+
   if (mode === 'audio') {
     await runYtDlp([
-      '--no-playlist',
+      ...common,
       '-x',
       '--audio-format', 'mp3',
       '--audio-quality', '0',
-      '-o', tmpl,
       url,
     ]);
   } else {
     await runYtDlp([
-      '--no-playlist',
+      ...common,
       '-f', 'bv*+ba/b',
       '--merge-output-format', 'mp4',
-      '-o', tmpl,
       url,
     ]);
   }
