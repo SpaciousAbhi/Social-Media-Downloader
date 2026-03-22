@@ -84,15 +84,15 @@ async function downloadWithYtdlCore(url, mode, filePath) {
       console.log('Fetching YTDL info with agent...');
       info = await ytdl.getInfo(url, { agent });
     } catch (err) {
-      console.log('YTDL getInfo failed, trying Cobalt fallback...');
+      console.log('YTDL getInfo failed, trying Relay fallback...');
       try {
-        const { downloadViaCobalt } = require('./cobalt');
-        // Cobalt will download directly to filePath and return filePath on success
-        const cobaltResultPath = await downloadViaCobalt(url, mode, filePath);
-        return resolve(cobaltResultPath);
-      } catch (cobErr) {
-        console.error('Cobalt fallback also failed:', cobErr.message);
-        return reject(err); // Throw original ytdl error if cobalt also fails
+        const { downloadViaRelay } = require('./relays');
+        // Relay will download directly to filePath and return filePath on success
+        const relayResultPath = await downloadViaRelay(url, mode, filePath);
+        return resolve(relayResultPath);
+      } catch (relErr) {
+        console.error('Relay fallback also failed:', relErr.message);
+        return reject(err); // Throw original ytdl error if relay also fails
       }
     }
 
