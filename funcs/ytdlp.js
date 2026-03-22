@@ -23,7 +23,7 @@ async function ensureYtDlpBinary() {
   
   const platform = process.platform;
   const arch = process.arch;
-  const binName = isWin ? 'yt-dlp.exe' : 'yt-dlp';
+  const binName = isWin ? 'yt-dlp.exe' : (isMac ? 'yt-dlp_macos' : 'yt-dlp_linux');
   const rootPath = path.join(process.cwd(), binName);
   const tmpPath = path.join(os.tmpdir(), 'yt-dlp-bin', binName);
   
@@ -40,7 +40,7 @@ async function ensureYtDlpBinary() {
   const binDir = path.dirname(binPath);
   if (!fs.existsSync(binDir)) fs.mkdirSync(binDir, { recursive: true });
 
-  const dlUrl = `https://github.com/yt-dlp/yt-dlp/releases/latest/download/${isWin ? 'yt-dlp.exe' : (isMac ? 'yt-dlp_macos' : 'yt-dlp')}`;
+  const dlUrl = `https://github.com/yt-dlp/yt-dlp/releases/latest/download/${binName}`;
 
   console.log(`Downloading yt-dlp binary from ${dlUrl} to ${binPath}...`);
   try {
