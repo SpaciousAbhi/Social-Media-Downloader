@@ -33,9 +33,37 @@ function htmlToText(html) {
 }
 
 
+const urlCache = new Map();
+
+function getCallbackData(prefix, url) {
+  if (!url) return prefix;
+  if ((prefix.length + 1 + url.length) <= 64) return `${prefix} ${url}`;
+  const id = Math.random().toString(36).substring(7);
+  urlCache.set(id, url);
+  if (urlCache.size > 1000) urlCache.clear(); 
+  return `${prefix} cache:${id}`;
+}
+
+function resolveUrl(data) {
+  const parts = data.split(' ');
+  const val = parts.slice(1).join(' ');
+  if (val.startsWith('cache:')) {
+    return urlCache.get(val.replace('cache:', ''));
+  }
+  return val;
+}
+
+async function getBanned(chatId) {
+    // Placeholder: can be expanded to a real ban system using database.json
+    return { status: true, reason: null };
+}
+
 module.exports = {
   getBuffer,
   htmlToText,
   filterAlphanumericWithDash,
-  getRandom
+  getRandom,
+  getCallbackData,
+  resolveUrl,
+  getBanned
 }

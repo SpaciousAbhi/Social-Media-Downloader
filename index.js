@@ -1,583 +1,181 @@
-/* required to disable the deprecation warning, 
-will be fixed when node-telegram-bot-api gets a new update */
 require('dotenv').config()
 process.env['NTBA_FIX_350'] = 1
-let express = require('express');
-let app = express();
-let TelegramBot = require('node-telegram-bot-api')
-let fs = require('fs')
-let {
-  getTiktokInfo,
-  tiktokVideo,
-  tiktokAudio,
-  tiktokSound
-} = require('./funcs/tiktok')
-let {
-  getDataTwitter,
-  downloadTwitterHigh,
-  downloadTwitterLow,
-  downloadTwitterAudio
-} = require('./funcs/twitter')
-let {
-  getPlaylistSpotify,
-  getAlbumsSpotify,
-  getSpotifySong
-} = require('./funcs/spotify')
-let {
-  downloadInstagram
-} = require('./funcs/instagram')
-let {
-  pinterest,
-  pinSearch
-} = require('./funcs/pinterest')
-let { getBanned } = require('./funcs/functions')
+const express = require('express');
+const app = express();
+const TelegramBot = require('node-telegram-bot-api')
+const fs = require('fs')
+const path = require('path')
 
-// Backward compatible: older versions of this repo didn't implement bans.
-// Provide a safe default so the bot doesn't crash.
-if (typeof getBanned !== 'function') {
-  getBanned = async () => ({ status: true, reason: null })
-}
-let {
-  getYoutube,
-  getYoutubeAudio,
-  getYoutubeVideo
-} = require('./funcs/youtube')
-let {
-  getFacebook,
-  getFacebookNormal,
-  getFacebookHD,
-  getFacebookAudio
-} = require('./funcs/facebook')
-let {
-  threadsDownload
-} = require('./funcs/threads')
-let {
-  getAiResponse
-} = require('./funcs/ai')
-let {
-  getBrainlyAnswer
-} = require('./funcs/brainly')
-let {
-  googleSearch
-} = require('./funcs/google')
-let {
-  gitClone
-} = require('./funcs/github')
-let {
-  getNetworkUploadSpeed,
-  getNetworkDownloadSpeed,
-  evaluateBot,
-  executeBot
-} = require('./funcs/dev')
-let {
-  telegraphUpload,
-  Pomf2Upload,
-  Ocr
-} = require('./funcs/images');
-let {
-  readDb,
-  writeDb,
-  addUserDb,
-  changeBoolDb
-} = require('./funcs/database')
-let userLocks = {};
-let userLocksText = {};
-let userLocksImage = {}
+// Import functions
+const { getTiktokInfo, tiktokVideo, tiktokAudio } = require('./funcs/tiktok')
+const { getDataTwitter, downloadTwitterHigh, downloadTwitterAudio } = require('./funcs/twitter')
+const { getPlaylistSpotify, getAlbumsSpotify, getSpotifySong } = require('./funcs/spotify')
+const { downloadInstagram } = require('./funcs/instagram')
+const { pinterest, pinSearch } = require('./funcs/pinterest')
+const { getYoutube, getYoutubeAudio, getYoutubeVideo } = require('./funcs/youtube')
+const { getFacebook, getFacebookNormal, getFacebookAudio } = require('./funcs/facebook')
+const { threadsDownload } = require('./funcs/threads')
+const { getAiResponse } = require('./funcs/ai')
+const { googleSearch } = require('./funcs/google')
+const { gitClone } = require('./funcs/github')
+const { getNetworkUploadSpeed, getNetworkDownloadSpeed, evaluateBot, executeBot } = require('./funcs/dev')
+const { telegraphUpload, Pomf2Upload, Ocr } = require('./funcs/images')
+const { readDb, writeDb, addUserDb } = require('./funcs/database')
+const { getBuffer, resolveUrl, getBanned } = require('./funcs/functions')
+
+// Ensure necessary directories exist
+['content', 'images'].forEach(dir => {
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+});
+
 // Token
-// Prefer TELEGRAM_BOT_TOKEN (Heroku-friendly), fallback to TOKEN for backward compatibility.
-let token = process.env.TELEGRAM_BOT_TOKEN || process.env.TOKEN
+const token = process.env.TELEGRAM_BOT_TOKEN || process.env.TOKEN
 if (!token) {
   console.error('Missing TELEGRAM_BOT_TOKEN (or TOKEN) environment variable')
   process.exit(1)
 }
 
-let bot = new TelegramBot(token, {
-  polling: true
-})
+const bot = new TelegramBot(token, { polling: true })
 
-// Basic logging / diagnostics
-process.on('unhandledRejection', (err) => {
-  console.error('unhandledRejection', err)
-})
-process.on('uncaughtException', (err) => {
-  console.error('uncaughtException', err)
-})
-
-bot.on('message', async (msg) => {
-  try {
-    const text = msg.text || ''
-    console.log(`[message] from=${msg.from?.id} chat=${msg.chat?.id} text=${text.slice(0, 200)}`)
-  } catch (e) {
-    console.error('log_message_error', e)
-  }
-})
-
-// Bot Settings
-let botName = 'Krxuv Bot';
-app.get('/', async (req, res) => {
-  res.send({
-    Status: "Active"
-  })
+// Middleware / Express Status
+app.get('/', (req, res) => {
+  res.send({ Status: "Active", Time: new Date().toISOString() })
 })
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, function () {});
-console.log(`Bot is running... HTTP server on :${PORT}`)
+app.listen(PORT, () => console.log(`Bot is running... HTTP server on :${PORT}`));
+
+// Status command
+bot.onText(/\/status/, async (msg) => {
+  const chatId = msg.chat.id;
+  const uptime = process.uptime();
+  const hours = Math.floor(uptime / 3600);
+  const minutes = Math.floor((uptime % 3600) / 60);
+  const seconds = Math.floor(uptime % 60);
+  
+  let statusMsg = `🖥 *SYSTEM DASHBOARD*\n`;
+  statusMsg += `━━━━━━━━━━━━━━━━━━━━\n`;
+  statusMsg += `⏱ *Uptime:* \`${hours}h ${minutes}m ${seconds}s\`\n`;
+  statusMsg += `📟 *Memory:* \`${(process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2)} MB\`\n`;
+  statusMsg += `⚙️ *Node:* \`${process.version}\`\n`;
+  statusMsg += `💎 *yt-dlp:* \`Ready ✅\`\n`;
+  statusMsg += `━━━━━━━━━━━━━━━━━━━━\n`;
+  statusMsg += `📡 *Status:* \`Operational\``;
+
+  bot.sendMessage(chatId, statusMsg, { parse_mode: 'Markdown' });
+});
 
 bot.on('photo', async (msg) => {
   let chatId = msg.chat.id;
-  let getban = await getBanned(chatId);
-  if (!getban.status) return bot.sendMessage(chatId, `You have been banned\n\nReason : ${getban.reason}\n\nDo you want to be able to use bots again? Please contact the owner to request removal of the ban\nOwner : @Krxuvv`)
-  if (!fs.existsSync(`images/${chatId}`)) await fs.mkdirSync(`images/${chatId}`)
+  let ban = await getBanned(chatId);
+  if (!ban.status) return bot.sendMessage(chatId, `❌ *Access Denied*\nReason: ${ban.reason || 'Banned'}`, { parse_mode: 'Markdown' });
+  
+  const destDir = `images/${chatId}`;
+  if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
+  
   try {
-    let write = await bot.downloadFile(msg.photo[msg.photo.length - 1].file_id, `images/${chatId}`);
-    await bot.deleteMessage(msg.chat.id, msg.message_id);
+    let filePath = await bot.downloadFile(msg.photo[msg.photo.length - 1].file_id, destDir);
+    await bot.deleteMessage(chatId, msg.message_id);
     let options = {
-      caption: `Please select the following option`,
+      caption: `🎨 *Image Tools*\n\nChoose an action for your image:`,
+      parse_mode: 'Markdown',
       reply_markup: JSON.stringify({
         inline_keyboard: [
-          [{
-            text: `Extract Text [ OCR ]`,
-            callback_data: `ocr ${write}`
-          }],
-          [{
-            text: `Upload To Url V1 [ Telegraph ]`,
-            callback_data: `tourl1 ${write}`
-          }],
-          [{
-            text: `Upload To Url V2 [ Pomf2 ]`,
-            callback_data: `tourl2 ${write}`
-          }]
+          [{ text: `🔍 Extract Text (OCR)`, callback_data: `ocr ${filePath}` }],
+          [{ text: `🌐 Upload to Telegraph`, callback_data: `tourl1 ${filePath}` }],
+          [{ text: `☁️ Upload to Pomf2`, callback_data: `tourl2 ${filePath}` }]
         ]
       })
     }
-    return bot.sendPhoto(chatId, `${write}`, options)
+    return bot.sendPhoto(chatId, filePath, options)
   } catch (err) {
-    return bot.sendMessage(String(process.env.DEV_ID), `Error Image Process: ${err}`);
+    bot.sendMessage(process.env.DEV_ID, `⚠️ *Photo Error:* \`${err.message}\``, { parse_mode: 'Markdown' });
   }
 })
 
-// start
 bot.onText(/\/start/, async (msg) => {
-  let getban = await getBanned(msg.chat.id);
-  if (!getban.status) return bot.sendMessage(msg.chat.id, `You have been banned\n\nReason : ${getban.reason}\n\nDo you want to be able to use bots again? Please contact the owner to request removal of the ban\nOwner : @Krxuvv`)
-  let response = `Hello I am ${botName}
-
-[Indonesia]
-Silahkan kirim link video atau postingan yang mau didownload, bot hanya support pada sosial media pada list
-
-[English]
-Please send a link to the video or post you want to download, the bot only supports social media on the list
-
-LIST :
-• Threads
-• Tiktok
-• Instagram
-• Twitter
-• Facebook
-• Pinterest
-• Spotify
-• Github
-
-
-OTHER FEATURES
-/ai (Question/Pertanyaan)
-/brainly (Pertanyaan/Soal)
-/pin (Searching Pinterest)
-/google (Searching Google)
-
-[Indonesia]
-Kirim gambar, jika ingin menggunakan ocr (ekstrak teks pada gambar), telegraf (unggah ke telegraf), dan pomf2 (unggah ke pomf2)
-
-[English]
-Send images, if you want to use ocr (extract text on image), telegraph (upload to telegraph), and pomf2 (upload to pomf2)
-
-Bot by @Krxuvv`
+  const chatId = msg.chat.id;
   let db = await readDb('./database.json');
-  let chatId = msg.chat.id;
-  if (!db[chatId]) {
-    await addUserDb(chatId, './database.json');
-    await bot.sendMessage(chatId, response);
-    db = await readDb('./database.json');
-  } else if (db[chatId]) {
-    await bot.sendMessage(chatId, response);
-  }
+  if (!db[chatId]) await addUserDb(chatId, './database.json');
+  
+  const welcome = `✨ *WELCOME TO ${process.env.BOT_NAME || 'MEDIA DOWN-BOT'}* ✨\n\n` +
+                  `I am your ultimate companion for downloading content from all your favorite platforms! 🚀\n\n` +
+                  `📱 *SUPPORTED PLATFORMS:*\n` +
+                  `━━━━━━━━━━━━━━━━━━━━\n` +
+                  `• 🎵 *TikTok* (Video/Photo)\n` +
+                  `• 📸 *Instagram* (Reels/Post)\n` +
+                  `• 🐦 *Twitter / X* (Video/GIF)\n` +
+                  `• 📘 *Facebook* (Public Video)\n` +
+                  `• 🧵 *Threads* (Video)\n` +
+                  `• 🎥 *YouTube* (Video/Audio)\n` +
+                  `• 📌 *Pinterest* (Video/Image)\n` +
+                  `• 🎧 *Spotify* (Music)\n` +
+                  `• 📂 *GitHub* (Repo Clone)\n\n` +
+                  `💡 *OTHER FEATURES:*\n` +
+                  `━━━━━━━━━━━━━━━━━━━━\n` +
+                  `• 🤖 /ai - Ask AI anything\n` +
+                  `• 🔍 /google - Search Google\n` +
+                  `• 🖼 /pin - Search Pinterest\n` +
+                  `• 🧠 OCR & Image Hosting (Send Image)\n\n` +
+                  `👉 *Just send a link to start!*`;
+                  
+  bot.sendMessage(chatId, welcome, { parse_mode: 'Markdown' });
 })
 
-// !dev commands
-// get network upload speed
-bot.onText(/\/upload/, async (msg) => {
-  let chatId = msg.chat.id
-  if (String(msg.from.id) !== String(process.env.DEV_ID)) {
-    return
-  }
-  await getNetworkUploadSpeed(bot, chatId)
-})
+// Dev Commands
+bot.onText(/\/upload/, (msg) => msg.from.id == process.env.DEV_ID && getNetworkUploadSpeed(bot, msg.chat.id));
+bot.onText(/\/download/, (msg) => msg.from.id == process.env.DEV_ID && getNetworkDownloadSpeed(bot, msg.chat.id));
+bot.onText(/\/senddb/, (msg) => msg.from.id == process.env.DEV_ID && bot.sendDocument(msg.chat.id, "./database.json"));
+bot.onText(/\> (.+)/, (msg, match) => msg.from.id == process.env.DEV_ID && evaluateBot(bot, msg.chat.id, match[1]));
+bot.onText(/\$ (.+)/, (msg, match) => msg.from.id == process.env.DEV_ID && executeBot(bot, msg.chat.id, match[1]));
 
-// get network download speed
-bot.onText(/\/download/, async (msg) => {
-  let chatId = msg.chat.id
-  // if user is not the developer
-  if (String(msg.from.id) !== String(process.env.DEV_ID)) {
-    return
-  }
-  await getNetworkDownloadSpeed(bot, chatId)
-})
+// Features
+bot.onText(/\/ai (.+)/, (msg, match) => getAiResponse(bot, msg.chat.id, match[1], msg.from.username));
+bot.onText(/\/google (.+)/, (msg, match) => googleSearch(bot, msg.chat.id, match[1], msg.from.username));
+bot.onText(/^(\/(pin|pinterest)) (.+)/, (msg, match) => pinSearch(bot, msg.chat.id, match[3], msg.from.username));
 
-// send database
-bot.onText(/\/senddb/, async (msg) => {
-  if (String(msg.from.id) !== String(process.env.DEV_ID)) {
-    return
-  }
-  await bot.sendDocument(msg.chat.id, "./database.json")
-})
+// Platform Regex
+bot.onText(/https?:\/\/(?:.*\.)?tiktok\.com/, (msg) => getTiktokInfo(bot, msg.chat.id, msg.text, msg.from.username));
+bot.onText(/https?:\/\/(?:.*\.)?(twitter\.com|x\.com)/, (msg) => getDataTwitter(bot, msg.chat.id, msg.text, msg.from.username));
+bot.onText(/(https?:\/\/)?(www\.)?(instagram\.com)\/.+/, (msg) => downloadInstagram(bot, msg.chat.id, msg.text, msg.from.username));
+bot.onText(/(https?:\/\/)?(www\.)?(pinterest\.ca|pinterest\.?com|pin\.?it)\/.+/, (msg) => pinterest(bot, msg.chat.id, msg.text, msg.from.username));
+bot.onText(/(https?:\/\/)?(www\.)?(open\.spotify\.com|spotify\.?com)\/(track|album|playlist)\/.+/, (msg, match) => {
+  if (match[4] === 'track') return getSpotifySong(bot, msg.chat.id, match[0], msg.from.username);
+  if (match[4] === 'album') return getAlbumsSpotify(bot, msg.chat.id, match[0], msg.from.username);
+  return getPlaylistSpotify(bot, msg.chat.id, match[0], msg.from.username);
+});
+bot.onText(/https?:\/\/(?:www\.)?youtu\.?be(?:\.com)?\/.+/, (msg) => getYoutube(bot, msg.chat.id, msg.text, msg.from.username));
+bot.onText(/https?:\/\/(?:www\.)?facebook\.com\/.+/, (msg) => getFacebook(bot, msg.chat.id, msg.text, msg.from.username));
+bot.onText(/https?:\/\/(?:www\.)?threads\.net\/.+/, (msg) => threadsDownload(bot, msg.chat.id, msg.text, msg.from.username));
+bot.onText(/(?:https|git)(?::\/\/|@)github\.com[\/:]([^\/:]+)\/(.+)/i, (msg) => gitClone(bot, msg.chat.id, msg.text, msg.from.username));
 
-// Evaluate Bot
-bot.onText(/\>/, async (msg) => {
-  if (String(msg.from.id) !== String(process.env.DEV_ID)) {
-    return
-  }
-  let text = msg.text.split(' ').slice(1).join(' ');
-  await evaluateBot(bot, msg.chat.id, text)
-})
-
-// Execute Bot
-bot.onText(/\$/, async (msg) => {
-  if (String(msg.from.id) !== String(process.env.DEV_ID)) {
-    return
-  }
-  let text = msg.text.split(' ').slice(1).join(' ');
-  await executeBot(bot, msg.chat.id, text)
-})
-
-// Gpt 3 / AI
-bot.onText(/\/ai/, async (msg) => {
-  let getban = await getBanned(msg.chat.id);
-  if (!getban.status) return bot.sendMessage(msg.chat.id, `You have been banned\n\nReason : ${getban.reason}\n\nDo you want to be able to use bots again? Please contact the owner to request removal of the ban\nOwner : @Krxuvv`)
-  let input = msg.text.split(' ').slice(1).join(' ');
-  let userId = msg.from.id.toString();
-  if (userLocksText[userId]) {
-    return;
-  }
-  userLocksText[userId] = true;
-  try {
-    await bot.sendMessage(String(process.env.DEV_ID), `[ Usage Log ]\n◇ FIRST NAME : ${msg.from.first_name ? msg.from.first_name : "-"}\n◇ LAST NAME : ${msg.from.last_name ? msg.from.last_name : "-"}\n◇ USERNAME : ${msg.from.username ? "@" + msg.from.username : "-"}\n◇ ID : ${msg.from.id}\n\nContent: ${msg.text.slice(0, 1000)}`, { disable_web_page_preview: true })
-    await getAiResponse(bot, msg.chat.id, input, msg.chat.username);
-  } finally {
-    userLocksText[userId] = false;
-  }
-})
-
-// Google
-bot.onText(/\/google/, async (msg) => {
-  let getban = await getBanned(msg.chat.id);
-  if (!getban.status) return bot.sendMessage(msg.chat.id, `You have been banned\n\nReason : ${getban.reason}\n\nDo you want to be able to use bots again? Please contact the owner to request removal of the ban\nOwner : @Krxuvv`)
-  let input = msg.text.split(' ').slice(1).join(' ');
-  let userId = msg.from.id.toString();
-  if (userLocksText[userId]) {
-    return;
-  }
-  userLocksText[userId] = true;
-  try {
-    await bot.sendMessage(String(process.env.DEV_ID), `[ Usage Log ]\n◇ FIRST NAME : ${msg.from.first_name ? msg.from.first_name : "-"}\n◇ LAST NAME : ${msg.from.last_name ? msg.from.last_name : "-"}\n◇ USERNAME : ${msg.from.username ? "@" + msg.from.username : "-"}\n◇ ID : ${msg.from.id}\n\nContent: ${msg.text.slice(0, 1000)}`, { disable_web_page_preview: true })
-    await googleSearch(bot, msg.chat.id, input, msg.chat.username);
-  } finally {
-    userLocksText[userId] = false;
-  }
-})
-
-// Brainly
-bot.onText(/\/brainly/, async (msg) => {
-  let getban = await getBanned(msg.chat.id);
-  if (!getban.status) return bot.sendMessage(msg.chat.id, `You have been banned\n\nReason : ${getban.reason}\n\nDo you want to be able to use bots again? Please contact the owner to request removal of the ban\nOwner : @Krxuvv`)
-  let input = msg.text.split(' ').slice(1).join(' ');
-  let userId = msg.from.id.toString();
-  if (userLocksText[userId]) {
-    return;
-  }
-  userLocksText[userId] = true;
-  try {
-    await bot.sendMessage(String(process.env.DEV_ID), `[ Usage Log ]\n◇ FIRST NAME : ${msg.from.first_name ? msg.from.first_name : "-"}\n◇ LAST NAME : ${msg.from.last_name ? msg.from.last_name : "-"}\n◇ USERNAME : ${msg.from.username ? "@" + msg.from.username : "-"}\n◇ ID : ${msg.from.id}\n\nContent: ${msg.text.slice(0, 1000)}`, { disable_web_page_preview: true })
-    await getBrainlyAnswer(bot, msg.chat.id, input, msg.chat.username);
-  } finally {
-    userLocksText[userId] = false;
-  }
-})
-
-// Pinterest Search
-bot.onText(/^(\/(pin|pinterest))/, async (msg) => {
-  let getban = await getBanned(msg.chat.id);
-  if (!getban.status) return bot.sendMessage(msg.chat.id, `You have been banned\n\nReason : ${getban.reason}\n\nDo you want to be able to use bots again? Please contact the owner to request removal of the ban\nOwner : @Krxuvv`)
-  let input = msg.text.split(' ').slice(1).join(' ');
-  let userId = msg.from.id.toString();
-  if (userLocksImage[userId]) {
-    return;
-  }
-  userLocksImage[userId] = true;
-  try {
-    await bot.sendMessage(String(process.env.DEV_ID), `[ Usage Log ]\n◇ FIRST NAME : ${msg.from.first_name ? msg.from.first_name : "-"}\n◇ LAST NAME : ${msg.from.last_name ? msg.from.last_name : "-"}\n◇ USERNAME : ${msg.from.username ? "@" + msg.from.username : "-"}\n◇ ID : ${msg.from.id}\n\nContent: ${msg.text.slice(0, 1000)}`, { disable_web_page_preview: true })
-    await pinSearch(bot, msg.chat.id, input, msg.chat.username);
-  } finally {
-    userLocksImage[userId] = false;
-  }
-})
-
-// Tiktok Regex
-bot.onText(/https?:\/\/(?:.*\.)?tiktok\.com/, async (msg) => {
-  let getban = await getBanned(msg.chat.id);
-  if (!getban.status) return bot.sendMessage(msg.chat.id, `You have been banned\n\nReason : ${getban.reason}\n\nDo you want to be able to use bots again? Please contact the owner to request removal of the ban\nOwner : @Krxuvv`)
-  let userId = msg.from.id.toString();
-  if (userLocks[userId]) {
-    return;
-  }
-  userLocks[userId] = true;
-  try {
-    await bot.sendMessage(String(process.env.DEV_ID), `[ Usage Log ]\n◇ FIRST NAME : ${msg.from.first_name ? msg.from.first_name : "-"}\n◇ LAST NAME : ${msg.from.last_name ? msg.from.last_name : "-"}\n◇ USERNAME : ${msg.from.username ? "@" + msg.from.username : "-"}\n◇ ID : ${msg.from.id}\n\nContent: ${msg.text.slice(0, 1000)}`, { disable_web_page_preview: true })
-    await getTiktokInfo(bot, msg.chat.id, msg.text, msg.chat.username);
-  } finally {
-    userLocks[userId] = false;
-  }
-})
-
-// Twitter Regex
-bot.onText(/https?:\/\/(?:.*\.)?twitter\.com/, async (msg) => {
-  let getban = await getBanned(msg.chat.id);
-  if (!getban.status) return bot.sendMessage(msg.chat.id, `You have been banned\n\nReason : ${getban.reason}\n\nDo you want to be able to use bots again? Please contact the owner to request removal of the ban\nOwner : @Krxuvv`)
-  let userId = msg.from.id.toString();
-  if (userLocks[userId]) {
-    return;
-  }
-  userLocks[userId] = true;
-  try {
-    await bot.sendMessage(String(process.env.DEV_ID), `[ Usage Log ]\n◇ FIRST NAME : ${msg.from.first_name ? msg.from.first_name : "-"}\n◇ LAST NAME : ${msg.from.last_name ? msg.from.last_name : "-"}\n◇ USERNAME : ${msg.from.username ? "@" + msg.from.username : "-"}\n◇ ID : ${msg.from.id}\n\nContent: ${msg.text.slice(0, 1000)}`, { disable_web_page_preview: true })
-    await getDataTwitter(bot, msg.chat.id, msg.text, msg.chat.username);
-  } finally {
-    userLocks[userId] = false;
-  }
-})
-
-// Instagram Regex
-bot.onText(/(https?:\/\/)?(www\.)?(instagram\.com)\/.+/, async (msg) => {
-  let getban = await getBanned(msg.chat.id);
-  if (!getban.status) return bot.sendMessage(msg.chat.id, `You have been banned\n\nReason : ${getban.reason}\n\nDo you want to be able to use bots again? Please contact the owner to request removal of the ban\nOwner : @Krxuvv`)
-  let userId = msg.from.id.toString();
-  if (userLocks[userId]) {
-    return;
-  }
-  userLocks[userId] = true;
-  try {
-    await bot.sendMessage(String(process.env.DEV_ID), `[ Usage Log ]\n◇ FIRST NAME : ${msg.from.first_name ? msg.from.first_name : "-"}\n◇ LAST NAME : ${msg.from.last_name ? msg.from.last_name : "-"}\n◇ USERNAME : ${msg.from.username ? "@" + msg.from.username : "-"}\n◇ ID : ${msg.from.id}\n\nContent: ${msg.text.slice(0, 1000)}`, { disable_web_page_preview: true })
-    await downloadInstagram(bot, msg.chat.id, msg.text, msg.chat.username);
-  } finally {
-    userLocks[userId] = false;
-  }
-})
-
-// Pinterest Regex
-bot.onText(/(https?:\/\/)?(www\.)?(pinterest\.ca|pinterest\.?com|pin\.?it)\/.+/, async (msg) => {
-  let getban = await getBanned(msg.chat.id);
-  if (!getban.status) return bot.sendMessage(msg.chat.id, `You have been banned\n\nReason : ${getban.reason}\n\nDo you want to be able to use bots again? Please contact the owner to request removal of the ban\nOwner : @Krxuvv`)
-  let userId = msg.from.id.toString();
-  if (userLocks[userId]) {
-    return;
-  }
-  userLocks[userId] = true;
-  try {
-    await bot.sendMessage(String(process.env.DEV_ID), `[ Usage Log ]\n◇ FIRST NAME : ${msg.from.first_name ? msg.from.first_name : "-"}\n◇ LAST NAME : ${msg.from.last_name ? msg.from.last_name : "-"}\n◇ USERNAME : ${msg.from.username ? "@" + msg.from.username : "-"}\n◇ ID : ${msg.from.id}\n\nContent: ${msg.text.slice(0, 1000)}`, { disable_web_page_preview: true })
-    await pinterest(bot, msg.chat.id, msg.text, msg.chat.username);
-  } finally {
-    userLocks[userId] = false;
-  }
-})
-
-// Spotify Track Regex
-bot.onText(/(https?:\/\/)?(www\.)?(open\.spotify\.com|spotify\.?com)\/track\/.+/, async (msg, match) => {
-  let getban = await getBanned(msg.chat.id);
-  if (!getban.status) return bot.sendMessage(msg.chat.id, `You have been banned\n\nReason : ${getban.reason}\n\nDo you want to be able to use bots again? Please contact the owner to request removal of the ban\nOwner : @Krxuvv`)
-  let userId = msg.from.id.toString();
-  if (userLocks[userId]) {
-    return;
-  }
-  userLocks[userId] = true;
-  try {
-    await bot.sendMessage(String(process.env.DEV_ID), `[ Usage Log ]\n◇ FIRST NAME : ${msg.from.first_name ? msg.from.first_name : "-"}\n◇ LAST NAME : ${msg.from.last_name ? msg.from.last_name : "-"}\n◇ USERNAME : ${msg.from.username ? "@" + msg.from.username : "-"}\n◇ ID : ${msg.from.id}\n\nContent: ${msg.text.slice(0, 1000)}`, { disable_web_page_preview: true })
-    await getSpotifySong(bot, msg.chat.id, match[0], msg.chat.username)
-  } finally {
-    userLocks[userId] = false;
-  }
-})
-
-// Spotify Albums Regex
-bot.onText(/(https?:\/\/)?(www\.)?(open\.spotify\.com|spotify\.?com)\/album\/.+/, async (msg, match) => {
-  let getban = await getBanned(msg.chat.id);
-  if (!getban.status) return bot.sendMessage(msg.chat.id, `You have been banned\n\nReason : ${getban.reason}\n\nDo you want to be able to use bots again? Please contact the owner to request removal of the ban\nOwner : @Krxuvv`)
-  let userId = msg.from.id.toString();
-  if (userLocks[userId]) {
-    return;
-  }
-  userLocks[userId] = true;
-  try {
-    await bot.sendMessage(String(process.env.DEV_ID), `[ Usage Log ]\n◇ FIRST NAME : ${msg.from.first_name ? msg.from.first_name : "-"}\n◇ LAST NAME : ${msg.from.last_name ? msg.from.last_name : "-"}\n◇ USERNAME : ${msg.from.username ? "@" + msg.from.username : "-"}\n◇ ID : ${msg.from.id}\n\nContent: ${msg.text.slice(0, 1000)}`, { disable_web_page_preview: true })
-    await getAlbumsSpotify(bot, msg.chat.id, match[0], msg.chat.username)
-  } finally {
-    userLocks[userId] = false;
-  }
-})
-
-// Spotify Playlist Regex
-bot.onText(/(https?:\/\/)?(www\.)?(open\.spotify\.com|spotify\.?com)\/playlist\/.+/, async (msg, match) => {
-  let getban = await getBanned(msg.chat.id);
-  if (!getban.status) return bot.sendMessage(msg.chat.id, `You have been banned\n\nReason : ${getban.reason}\n\nDo you want to be able to use bots again? Please contact the owner to request removal of the ban\nOwner : @Krxuvv`)
-  let userId = msg.from.id.toString();
-  if (userLocks[userId]) {
-    return;
-  }
-  userLocks[userId] = true;
-  try {
-    await bot.sendMessage(String(process.env.DEV_ID), `[ Usage Log ]\n◇ FIRST NAME : ${msg.from.first_name ? msg.from.first_name : "-"}\n◇ LAST NAME : ${msg.from.last_name ? msg.from.last_name : "-"}\n◇ USERNAME : ${msg.from.username ? "@" + msg.from.username : "-"}\n◇ ID : ${msg.from.id}\n\nContent: ${msg.text.slice(0, 1000)}`, { disable_web_page_preview: true })
-    await getPlaylistSpotify(bot, msg.chat.id, match[0], msg.chat.username)
-  } finally {
-    userLocks[userId] = false;
-  }
-})
-
-// Youtube Regex
-bot.onText(/^(?:https?:\/\/)?(?:www\.|m\.|music\.)?youtu\.?be(?:\.com)?\/?.*(?:watch|embed)?(?:.*v=|v\/|\/)([\w\-_]+)\&?/, async (msg, match) => {
-  let getban = await getBanned(msg.chat.id);
-  if (!getban.status) return bot.sendMessage(msg.chat.id, `You have been banned\n\nReason : ${getban.reason}\n\nDo you want to be able to use bots again? Please contact the owner to request removal of the ban\nOwner : @Krxuvv`)
-  let userId = msg.from.id.toString();
-  if (userLocks[userId]) {
-    return;
-  }
-  userLocks[userId] = true;
-  try {
-    if (match[0].includes("/live/")) return bot.sendMessage(msg.chat.id, `Cannot download livestream video`)
-    await bot.sendMessage(String(process.env.DEV_ID), `[ Usage Log ]\n◇ FIRST NAME : ${msg.from.first_name ? msg.from.first_name : "-"}\n◇ LAST NAME : ${msg.from.last_name ? msg.from.last_name : "-"}\n◇ USERNAME : ${msg.from.username ? "@" + msg.from.username : "-"}\n◇ ID : ${msg.from.id}\n\nContent: ${msg.text.slice(0, 1000)}`, { disable_web_page_preview: true })
-    await getYoutube(bot, msg.chat.id, match[0], msg.chat.username)
-  } finally {
-    userLocks[userId] = false;
-  }
-})
-
-// Facebook Regex
-bot.onText(/^https?:\/\/(www\.)?(m\.)?facebook\.com\/.+/, async (msg, match) => {
-  let getban = await getBanned(msg.chat.id);
-  if (!getban.status) return bot.sendMessage(msg.chat.id, `You have been banned\n\nReason : ${getban.reason}\n\nDo you want to be able to use bots again? Please contact the owner to request removal of the ban\nOwner : @Krxuvv`)
-  let userId = msg.from.id.toString();
-  if (userLocks[userId]) {
-    return;
-  }
-  userLocks[userId] = true;
-  try {
-    await bot.sendMessage(String(process.env.DEV_ID), `[ Usage Log ]\n◇ FIRST NAME : ${msg.from.first_name ? msg.from.first_name : "-"}\n◇ LAST NAME : ${msg.from.last_name ? msg.from.last_name : "-"}\n◇ USERNAME : ${msg.from.username ? "@" + msg.from.username : "-"}\n◇ ID : ${msg.from.id}\n\nContent: ${msg.text.slice(0, 1000)}`, { disable_web_page_preview: true })
-    await getFacebook(bot, msg.chat.id, match[0], msg.chat.username)
-  } finally {
-    userLocks[userId] = false;
-  }
-})
-
-// Threads Regex
-bot.onText(/^https?:\/\/(www\.)?threads\.net\/.+/, async (msg, match) => {
-  let getban = await getBanned(msg.chat.id);
-  if (!getban.status) return bot.sendMessage(msg.chat.id, `You have been banned\n\nReason : ${getban.reason}\n\nDo you want to be able to use bots again? Please contact the owner to request removal of the ban\nOwner : @Krxuvv`)
-  let userId = msg.from.id.toString();
-  if (userLocks[userId]) {
-    return;
-  }
-  userLocks[userId] = true;
-  try {
-    await bot.sendMessage(String(process.env.DEV_ID), `[ Usage Log ]\n◇ FIRST NAME : ${msg.from.first_name ? msg.from.first_name : "-"}\n◇ LAST NAME : ${msg.from.last_name ? msg.from.last_name : "-"}\n◇ USERNAME : ${msg.from.username ? "@" + msg.from.username : "-"}\n◇ ID : ${msg.from.id}\n\nContent: ${msg.text.slice(0, 1000)}`, { disable_web_page_preview: true })
-    await threadsDownload(bot, msg.chat.id, match[0], msg.chat.username)
-  } finally {
-    userLocks[userId] = false;
-  }
-})
-
-// Github Clone Regex
-bot.onText(/(?:https|git)(?::\/\/|@)github\.com[\/:]([^\/:]+)\/(.+)/i, async (msg, match) => {
-  let getban = await getBanned(msg.chat.id);
-  if (!getban.status) return bot.sendMessage(msg.chat.id, `You have been banned\n\nReason : ${getban.reason}\n\nDo you want to be able to use bots again? Please contact the owner to request removal of the ban\nOwner : @Krxuvv`)
-  let userId = msg.from.id.toString();
-  if (userLocks[userId]) {
-    return;
-  }
-  userLocks[userId] = true;
-  try {
-    await bot.sendMessage(String(process.env.DEV_ID), `[ Usage Log ]\n◇ FIRST NAME : ${msg.from.first_name ? msg.from.first_name : "-"}\n◇ LAST NAME : ${msg.from.last_name ? msg.from.last_name : "-"}\n◇ USERNAME : ${msg.from.username ? "@" + msg.from.username : "-"}\n◇ ID : ${msg.from.id}\n\nContent: ${msg.text.slice(0, 1000)}`, { disable_web_page_preview: true })
-    await gitClone(bot, msg.chat.id, match[0], msg.chat.username)
-  } finally {
-    userLocks[userId] = false;
-  }
-})
-
+// Callback Handling
 bot.on('callback_query', async (mil) => {
-  let data = mil.data;
-  let url = data.split(' ').slice(1).join(' ');
-  let chatid = mil.message.chat.id;
-  let msgid = mil.message.message_id;
-  let usrnm = mil.message.chat.username;
-  if (data.startsWith('tta')) {
-    await bot.deleteMessage(chatid, msgid);
-    await tiktokAudio(bot, chatid, url, usrnm);
-  } else if (data.startsWith('ttv')) {
-    await bot.deleteMessage(chatid, msgid);
-    await tiktokVideo(bot, chatid, url, usrnm);
-  } else if (data.startsWith('tts')) {
-    await bot.deleteMessage(chatid, msgid);
-    await tiktokSound(bot, chatid, url, usrnm);
-  } else if (data.startsWith('twh')) {
-    await bot.deleteMessage(chatid, msgid);
-    await downloadTwitterHigh(bot, chatid, usrnm);
-  } else if (data.startsWith('twl')) {
-    await bot.deleteMessage(chatid, msgid);
-    await downloadTwitterLow(bot, chatid, usrnm);
-  } else if (data.startsWith('twa')) {
-    await bot.deleteMessage(chatid, msgid);
-    await downloadTwitterAudio(bot, chatid, usrnm);
-  } else if (data.startsWith('spt')) {
-    await bot.deleteMessage(chatid, msgid);
-    await getSpotifySong(bot, chatid, url, usrnm);
-  } else if (data.startsWith('fbn')) {
-    await bot.deleteMessage(chatid, msgid);
-    await getFacebookNormal(bot, chatid, usrnm);
-  } else if (data.startsWith('fbh')) {
-    await bot.deleteMessage(chatid, msgid);
-    await getFacebookHD(bot, chatid, usrnm);
-  } else if (data.startsWith('fba')) {
-    await bot.deleteMessage(chatid, msgid);
-    await getFacebookAudio(bot, chatid, usrnm);
-  } else if (data.startsWith('ytv')) {
-    let args = url.split(' ');
-    await bot.deleteMessage(chatid, msgid);
-    await getYoutubeVideo(bot, chatid, args[0], args[1], usrnm);
-  } else if (data.startsWith('yta')) {
-    let args = url.split(' ');
-    await bot.deleteMessage(chatid, msgid);
-    await getYoutubeAudio(bot, chatid, args[0], args[1], usrnm);
+  const data = mil.data;
+  const chatId = mil.message.chat.id;
+  const msgid = mil.message.message_id;
+  const userName = mil.from.username || mil.from.first_name || 'user';
+  const url = resolveUrl(data);
 
-  // New yt-dlp callbacks
-  } else if (data.startsWith('ytdlpv')) {
-    await bot.deleteMessage(chatid, msgid);
-    // url is the normalized YouTube URL
-    const m = String(url).match(/v=([\w-]{11})/);
-    const id = m ? m[1] : url;
-    await getYoutubeVideo(bot, chatid, id, null, usrnm);
-  } else if (data.startsWith('ytdlpa')) {
-    await bot.deleteMessage(chatid, msgid);
-    const m = String(url).match(/v=([\w-]{11})/);
-    const id = m ? m[1] : url;
-    await getYoutubeAudio(bot, chatid, id, null, usrnm);
+  await bot.deleteMessage(chatId, msgid);
 
-  } else if (data.startsWith('tourl1')) {
-    await bot.deleteMessage(chatid, msgid);
-    await telegraphUpload(bot, chatid, url, usrnm);
-  } else if (data.startsWith('tourl2')) {
-    await bot.deleteMessage(chatid, msgid);
-    await Pomf2Upload(bot, chatid, url, usrnm);
-  } else if (data.startsWith('ocr')) {
-    await bot.deleteMessage(chatid, msgid);
-    await Ocr(bot, chatid, url, usrnm);
-  }
-})
+  if (data.startsWith('ttv')) await tiktokVideo(bot, chatId, url, userName);
+  if (data.startsWith('tta')) await tiktokAudio(bot, chatId, url, userName);
+  if (data.startsWith('igv')) await downloadInstagram(bot, chatId, url, userName);
+  if (data.startsWith('iga')) await downloadInstagram(bot, chatId, url, userName); // IG audio typically just sends video
+  if (data.startsWith('twh')) await downloadTwitterHigh(bot, chatId, userName, url);
+  if (data.startsWith('twa')) await downloadTwitterAudio(bot, chatId, userName, url);
+  if (data.startsWith('spt')) await getSpotifySong(bot, chatId, url, userName); // Kept from original
+  if (data.startsWith('fbn')) await getFacebookNormal(bot, chatId, userName, url);
+  if (data.startsWith('fba')) await getFacebookAudio(bot, chatId, userName, url);
+  if (data.startsWith('thv')) await threadsDownload(bot, chatId, url, userName);
+  if (data.startsWith('tha')) await threadsDownload(bot, chatId, url, userName);
+  if (data.startsWith('ytdlpv')) await getYoutubeVideo(bot, chatId, url, null, userName);
+  if (data.startsWith('ytdlpa')) await getYoutubeAudio(bot, chatId, url, null, userName);
+  if (data.startsWith('tourl1')) await telegraphUpload(bot, chatId, url, userName); // Kept from original
+  if (data.startsWith('tourl2')) await Pomf2Upload(bot, chatId, url, userName);
+  if (data.startsWith('ocr')) await Ocr(bot, chatId, url, userName);
+});
 
-process.on('uncaughtException', console.error)
+process.on('uncaughtException', console.error);
+process.on('unhandledRejection', console.error);

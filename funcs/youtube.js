@@ -1,14 +1,11 @@
 require('dotenv').config();
-const axios = require('axios');
 const fs = require('fs');
-const util = require('util');
-const { htmlToText, getBuffer, filterAlphanumericWithDash } = require('./functions');
-// NOTE: y2mate-api is unreliable; we prefer yt-dlp for production stability.
+const { getCallbackData } = require('./functions');
 const { downloadWithYtDlp } = require('./ytdlp');
+const { getProgressBar } = require('./progress');
 
 function normalizeYouTubeUrl(input) {
   try {
-    // Extract video id from common formats
     const m = String(input).match(/(?:v=|\/)([\w-]{11})(?:\?|&|$)/);
     const id = m ? m[1] : null;
     if (!id) return input;
@@ -19,97 +16,103 @@ function normalizeYouTubeUrl(input) {
 }
 
 async function getYoutube(bot, chatId, url, userName) {
-  const originalUrl = url
-  url = normalizeYouTubeUrl(url)
+  const originalUrl = url;
+  url = normalizeYouTubeUrl(url);
 
-  let load = await bot.sendMessage(chatId, 'Loading, please wait.')
-  try { await bot.sendMessage(String(process.env.DEV_ID), `[YT] original=${originalUrl}
-[YT] normalized=${url}`.trim()) } catch {}
+  let load = await bot.sendMessage(chatId, '🛰 *Searching YouTube...*', { parse_mode: 'Markdown' });
+  try { 
+    // Redesign caption
+    let caption = `🎥 *YOUTUBE CONTENT*\n`;
+    caption += `━━━━━━━━━━━━━━━━━━━━\n`;
+    caption += `🔗 *Url:* \`${url.slice(0, 50)}...\`\n`;
+    caption += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+    caption += `Choose your download format below:`;
 
-  // Offer two simple options (video/audio) using yt-dlp. This avoids y2mate instability.
-  const opts = {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: 'Download Video (best)', callback_data: `ytdlpv ${url}` }],
-        [{ text: 'Download Audio (mp3)', callback_data: `ytdlpa ${url}` }],
-      ],
-    },
-  }
-
-  await bot.editMessageText('Choose format:', { chat_id: chatId, message_id: load.message_id, ...opts })
-}
-
-async function getYoutubeVideo(bot, chatId, id, ind, userName) {
-  // Back-compat: treat id as video id
-  const url = `https://www.youtube.com/watch?v=${id}`
-  let load = await bot.sendMessage(chatId, 'Downloading video, please wait...')
-  try {
-    const filePath = await downloadWithYtDlp(url, 'video')
-    const stat = require('fs').statSync(filePath)
-    const max = 49 * 1024 * 1024
-    if (stat.size > max) {
-      await bot.editMessageText('File is too large for Telegram bot upload (>49MB).', { chat_id: chatId, message_id: load.message_id })
-      return
+    await bot.deleteMessage(chatId, load.message_id);
+    if (meta && meta.thumbnail) {
+        return bot.sendPhoto(chatId, meta.thumbnail, options);
+    } else {
+        return bot.sendMessage(chatId, caption, options);
     }
-    await bot.sendVideo(chatId, filePath, { caption: 'YouTube video' })
-    await bot.deleteMessage(chatId, load.message_id)
-    require('fs').unlinkSync(filePath)
   } catch (err) {
-    const util = require('util')
-
-    const redact = (s) => String(s)
-      // redact bot token if it appears in request URLs
-      .replace(/\/bot\d+:[^/\s]+\//g, '/bot<redacted>/')
-
-    let detail = (err && err.stack) ? redact(err.stack)
-      : (err && err.message && typeof err.message === 'string') ? redact(err.message)
-      : redact(util.inspect(err, { depth: 4 }))
-
-    // Telegram max message length is limited; keep logs readable.
-    const MAX = 3500
-    const shortDetail = detail.length > MAX ? (detail.slice(0, MAX) + `\n... (truncated ${detail.length - MAX} chars)`) : detail
-
-    console.error('getYoutubeVideo_error', shortDetail)
-
-    await bot.sendMessage(String(process.env.DEV_ID), `[ ERROR MESSAGE ]\n\n• Username: @${userName}\n• File: funcs/youtube.js\n• Function: getYoutubeVideo()\n• Url: ${url}\n\n${shortDetail}`)
-    await bot.editMessageText('Failed to download video.', { chat_id: chatId, message_id: load.message_id })
+    console.error('getYoutube error:', err);
+    await bot.editMessageText(`❌ *Search Failed:* \`${err.message}\``, { chat_id: chatId, message_id: load.message_id, parse_mode: 'Markdown' });
   }
 }
 
-async function getYoutubeAudio(bot, chatId, id, ind, userName) {
-  const url = `https://www.youtube.com/watch?v=${id}`
-  let load = await bot.sendMessage(chatId, 'Downloading audio, please wait...')
+async function getYoutubeVideo(bot, chatId, url, ind, userName) {
+  let load = await bot.sendMessage(chatId, '🛰 *Initializing download...*', { parse_mode: 'Markdown' });
   try {
-    const filePath = await downloadWithYtDlp(url, 'audio')
-    const stat = require('fs').statSync(filePath)
-    const max = 49 * 1024 * 1024
-    if (stat.size > max) {
-      await bot.editMessageText('File is too large for Telegram bot upload (>49MB).', { chat_id: chatId, message_id: load.message_id })
-      return
-    }
-    await bot.sendAudio(chatId, filePath, { caption: 'YouTube audio' })
-    await bot.deleteMessage(chatId, load.message_id)
-    require('fs').unlinkSync(filePath)
+    let lastUpdate = 0;
+    const filePath = await downloadWithYtDlp(url, 'video', (p) => {
+      const now = Date.now();
+      if (now - lastUpdate > 2000) {
+        lastUpdate = now;
+        const bar = getProgressBar(p.percent);
+        bot.editMessageText(`📥 *Downloading YouTube Video...*\n\n${bar}\n\n⚡️ *Speed:* \`${p.currentSpeed || '...'}\`\n⏳ *ETA:* \`${p.eta || '...'}\``, {
+          chat_id: chatId,
+          message_id: load.message_id,
+          parse_mode: 'Markdown'
+        }).catch(() => {});
+      }
+    });
+
+    await bot.editMessageText('📤 *Uploading to Telegram...*', { chat_id: chatId, message_id: load.message_id, parse_mode: 'Markdown' });
+    await bot.sendChatAction(chatId, 'upload_video');
+    
+    await bot.sendVideo(chatId, filePath, { 
+      caption: `✅ *Success!* YouTube video ready.\n\n👤 *Requested by:* @${userName || 'user'}\n🤖 *Bot by:* @Krxuvv`,
+      parse_mode: 'Markdown'
+    });
+    
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    await bot.deleteMessage(chatId, load.message_id);
   } catch (err) {
-    const util = require('util')
-
-    const redact = (s) => String(s)
-      .replace(/\/bot\d+:[^/\s]+\//g, '/bot<redacted>/')
-
-    let detail = (err && err.stack) ? redact(err.stack)
-      : (err && err.message && typeof err.message === 'string') ? redact(err.message)
-      : redact(util.inspect(err, { depth: 4 }))
-
-    const MAX = 3500
-    const shortDetail = detail.length > MAX ? (detail.slice(0, MAX) + `\n... (truncated ${detail.length - MAX} chars)`) : detail
-
-    console.error('getYoutubeAudio_error', shortDetail)
-
-    await bot.sendMessage(String(process.env.DEV_ID), `[ ERROR MESSAGE ]\n\n• Username: @${userName}\n• File: funcs/youtube.js\n• Function: getYoutubeAudio()\n• Url: ${url}\n\n${shortDetail}`)
-    await bot.editMessageText('Failed to download audio.', { chat_id: chatId, message_id: load.message_id })
+    console.error('getYoutubeVideo error:', err);
+    return bot.editMessageText(`❌ *YouTube Download Failed*\n\nError: \`${err.message}\``, { 
+      chat_id: chatId, 
+      message_id: load.message_id,
+      parse_mode: 'Markdown' 
+    })
   }
 }
 
+async function getYoutubeAudio(bot, chatId, url, ind, userName) {
+  let load = await bot.sendMessage(chatId, '🛰 *Initializing audio conversion...*', { parse_mode: 'Markdown' });
+  try {
+    let lastUpdate = 0;
+    const filePath = await downloadWithYtDlp(url, 'audio', (p) => {
+      const now = Date.now();
+      if (now - lastUpdate > 2000) {
+        lastUpdate = now;
+        const bar = getProgressBar(p.percent);
+        bot.editMessageText(`📥 *Downloading & Converting Audio...*\n\n${bar}\n\n⚡️ *Speed:* \`${p.currentSpeed || '...'}\`\n⏳ *ETA:* \`${p.eta || '...'}\``, {
+          chat_id: chatId,
+          message_id: load.message_id,
+          parse_mode: 'Markdown'
+        }).catch(() => {});
+      }
+    });
+
+    await bot.editMessageText('📤 *Uploading to Telegram...*', { chat_id: chatId, message_id: load.message_id, parse_mode: 'Markdown' });
+    await bot.sendChatAction(chatId, 'upload_audio');
+    
+    await bot.sendAudio(chatId, filePath, { 
+      caption: `✅ *Success!* YouTube audio ready.\n\n👤 *Requested by:* @${userName || 'user'}\n🤖 *Bot by:* @Krxuvv`,
+      parse_mode: 'Markdown'
+    });
+    
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    await bot.deleteMessage(chatId, load.message_id);
+  } catch (err) {
+    console.error('getYoutubeAudio error:', err);
+    return bot.editMessageText(`❌ *YouTube Download Failed*\n\nError: \`${err.message}\``, { 
+      chat_id: chatId, 
+      message_id: load.message_id,
+      parse_mode: 'Markdown' 
+    })
+  }
+}
 
 module.exports = {
   getYoutube,
