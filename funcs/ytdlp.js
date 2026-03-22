@@ -40,18 +40,29 @@ async function ensureYtDlpBinary() {
   const binDir = path.dirname(binPath);
   if (!fs.existsSync(binDir)) fs.mkdirSync(binDir, { recursive: true });
 
-  let platformAsset = null;
-  if (isWin) platformAsset = 'win32';
-  else if (isMac) platformAsset = 'darwin';
-  else platformAsset = 'linux';
+  const dlUrl = `https://github.com/yt-dlp/yt-dlp/releases/latest/download/${isWin ? 'yt-dlp.exe' : (isMac ? 'yt-dlp_macos' : 'yt-dlp')}`;
 
-  console.log(`Downloading yt-dlp binary to ${binPath}...`);
-  // Static method: downloadFromGithub(filePath, version, platform)
-  await (YtDlpWrap.downloadFromGithub || (new YtDlpWrap()).downloadFromGithub)(binPath, 'latest', platformAsset);
-  
+  console.log(`Downloading yt-dlp binary from ${dlUrl} to ${binPath}...`);
   try {
+    // We use curl for maximum reliability in avoiding node HTTP redirect/buffer issues for large binaries
+    const { execSync } = require('child_process');
+    execSync(`curl -L "${dlUrl}" -o "${binPath}"`, { stdio: 'inherit' });
+
+    // Validate if it is actually an HTML page (404/error)
+    if (fs.existsSync(binPath)) {
+        const head = fs.readFileSync(binPath, { encoding: 'utf8', flag: 'r' }).substring(0, 100);
+        if (head.includes('<!DOCTYPE html>') || head.includes('<html')) {
+            fs.unlinkSync(binPath);
+            throw new Error('Downloaded file is an HTML page (404 Not Found or similar).');
+        }
+    }
+
     if (!isWin) fs.chmodSync(binPath, 0o755);
-  } catch (e) {}
+  } catch (err) {
+    console.error('Failed to download yt-dlp binary:', err.message);
+    if (fs.existsSync(binPath)) fs.unlinkSync(binPath);
+    throw err;
+  }
   
   return binPath;
 }
