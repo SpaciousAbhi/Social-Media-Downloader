@@ -57,6 +57,7 @@ async function ensureYtDlpBinary() {
 }
 
 const isWin = process.platform === 'win32';
+const isMac = process.platform === 'darwin';
 
 async function runYtDlp(args, onProgress) {
   const bin = await ensureYtDlpBinary();
