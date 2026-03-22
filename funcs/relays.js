@@ -23,8 +23,8 @@ async function downloadViaRelay(url, mode = 'video', filePath = null) {
         try {
             console.log(`Trying Cobalt relay: ${instance}`);
             const response = await axios.post(`${instance}/`, {
-                url: url,
-                downloadMode: 'auto'
+                url: url
+                // Minimal body to avoid 400 errors on v10+
             }, {
                 headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
                 timeout: 15000
@@ -40,7 +40,7 @@ async function downloadViaRelay(url, mode = 'video', filePath = null) {
         }
     }
 
-    // 2. Try VKRDownloader API (vkrdownloader.org)
+    // 2. Try VKRDownloader API
     try {
         console.log('Trying VKRDownloader relay...');
         const vkrUrl = `https://vkrdownloader.org/server/?api_key=vkrdownloader&vkr=${encodeURIComponent(url)}`;
@@ -52,11 +52,12 @@ async function downloadViaRelay(url, mode = 'video', filePath = null) {
                 return await handleMediaResult(dl.url, filePath);
             }
         }
+        if (resV.data?.error) console.log('VKR rejected:', resV.data.error);
     } catch (err) {
-        console.error('VKR relay failed:', err.message);
+        console.error('VKR relay failed:', err.response?.data || err.message);
     }
 
-    // 3. Try TiklyDown (api.tiklydown.eu.org)
+    // 3. Try TiklyDown (Good for TikTok/IG)
     try {
         console.log('Trying TiklyDown relay...');
         const tikUrl = `https://api.tiklydown.eu.org/api/download?url=${encodeURIComponent(url)}`;
@@ -68,6 +69,27 @@ async function downloadViaRelay(url, mode = 'video', filePath = null) {
         }
     } catch (err) {
         console.error('TiklyDown relay failed:', err.message);
+    }
+
+    // 4. Platform-Specific God-Tier Fallback: Invidious for YouTube
+    if (url.includes('youtube.com') || url.includes('youtu.be')) {
+        try {
+            console.log('Trying Invidious mirror relay...');
+            const videoId = url.split('v=')[1]?.split('&')[0] || url.split('youtu.be/')[1]?.split('?')[0];
+            if (videoId) {
+                const invBtn = `https://invidious.proto.id/api/v1/videos/${videoId}`;
+                const resI = await axios.get(invBtn, { timeout: 10000 });
+                if (resI.data && resI.data.formatStreams) {
+                    const stream = resI.data.formatStreams.find(s => s.qualityLabel === '720p') || resI.data.formatStreams[0];
+                    if (stream && stream.url) {
+                         console.log('Invidious success!');
+                         return await handleMediaResult(stream.url, filePath);
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('Invidious fallback failed:', err.message);
+        }
     }
 
     throw new Error('All relay providers failed');
