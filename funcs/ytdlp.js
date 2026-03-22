@@ -8,22 +8,49 @@ const execFileAsync = promisify(execFile);
 
 // Cookie Handler
 let cookiesPath = null;
-function getCookiesArgs() {
-  if (process.env.YTDLP_COOKIES) {
-    if (!cookiesPath) {
-      cookiesPath = path.join(os.tmpdir(), 'ytdlp_cookies.txt');
-      let rawCookies = process.env.YTDLP_COOKIES;
-      // Fix Heroku stripping newlines by adding them back before domains (like .youtube.com)
-      if (!rawCookies.includes('\n')) {
-          rawCookies = rawCookies.replace(/ (\.[a-z0-9-]+\.[a-z]+)/g, '\n$1');
-          rawCookies = rawCookies.replace(/ (instagram\.com)/g, '\n$1');
-      }
-      fs.writeFileSync(cookiesPath, rawCookies, 'utf8');
-      if (process.platform !== 'win32') fs.chmodSync(cookiesPath, 0o600);
-      console.log('✅ Injected YTDLP_COOKIES from environment.');
+const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+
+function fixCookies(cookieData) {
+    if (!cookieData) return '';
+    let finalCookies = cookieData;
+    // Fix Heroku stripping newlines by adding them back before domains
+    if (!finalCookies.includes('\n')) {
+        finalCookies = finalCookies.replace(/ (\.[a-z0-9-]+\.[a-z]+)/g, '\n$1');
+        finalCookies = finalCookies.replace(/ (instagram\.com)/g, '\n$1');
+        finalCookies = finalCookies.replace(/ (youtube\.com)/g, '\n$1');
     }
-    return ['--cookies', cookiesPath];
-  }
+    return finalCookies;
+}
+
+function getCookieString() {
+    const cookieData = process.env.YTDLP_COOKIES;
+    if (!cookieData) return '';
+    
+    const fixed = fixCookies(cookieData);
+    const lines = fixed.split('\n');
+    const cookies = [];
+    for (const line of lines) {
+        if (!line.trim() || line.startsWith('#')) continue;
+        const parts = line.split('\t');
+        if (parts.length >= 7) {
+            cookies.push(`${parts[5]}=${parts[6].trim()}`);
+        }
+    }
+    return cookies.join('; ');
+}
+
+function getCookiesArgs() {
+    const cookieData = process.env.YTDLP_COOKIES;
+    if (cookieData) {
+        if (!cookiesPath) {
+            cookiesPath = path.join(os.tmpdir(), 'ytdlp_cookies.txt');
+            const fixed = fixCookies(cookieData);
+            fs.writeFileSync(cookiesPath, fixed, 'utf8');
+            if (process.platform !== 'win32') fs.chmodSync(cookiesPath, 0o600);
+            console.log('✅ Injected YTDLP_COOKIES from environment.');
+        }
+        return ['--cookies', cookiesPath];
+    }
   
   // Fallback to local cookies.txt if it exists
   const localCookies = path.join(process.cwd(), 'cookies.txt');
@@ -146,7 +173,7 @@ async function runYtDlpSimple(args) {
 
 async function getMetadata(url) {
   // We use manual runYtDlpSimple with --dump-json to avoid yt-dlp-wrap's default -f best
-  let extraArgs = [];
+  let extraArgs = ['--user-agent', USER_AGENT];
   const out = await runYtDlpSimple([...extraArgs, '--dump-json', '--no-playlist', '--no-warnings', url]);
   return JSON.parse(out);
 }
@@ -158,7 +185,7 @@ async function downloadWithYtDlp(url, mode /* 'video'|'audio' */, onProgress, cu
   const id = Math.random().toString(36).substring(7);
   const tmpl = path.join(outDir, `ytdlp_${id}_%(title).100s.%(ext)s`);
 
-  let args = ['--no-playlist'];
+  let args = ['--no-playlist', '--user-agent', USER_AGENT];
   if (mode === 'audio') {
     args.push('-x', '--audio-format', 'mp3', '--audio-quality', '0');
   } else {
@@ -193,5 +220,6 @@ async function downloadWithYtDlp(url, mode /* 'video'|'audio' */, onProgress, cu
 module.exports = {
   downloadWithYtDlp,
   getMetadata,
-  safeName,
+  getCookieString,
+  USER_AGENT
 };

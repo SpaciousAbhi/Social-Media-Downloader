@@ -14,23 +14,34 @@ async function downloadInstagram(bot, chatId, url, userName) {
         // Convert Instagram URL to Ddinstagram (telegram proxy) without www.
         let ddUrl = url.replace(/https:\/\/(www\.)?instagram\.com/i, 'https://ddinstagram.com').split('?')[0];
 
-        console.log('Fetching from Ddinstagram proxy:', ddUrl);
+        const { getCookieString, USER_AGENT } = require('./ytdlp');
+        const cookieString = getCookieString();
+
+        console.log('Fetching from Instagram proxy:', ddUrl);
         let data = '';
         try {
             const res = await axios.get(ddUrl, {
                 headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                    'User-Agent': USER_AGENT,
+                    'Cookie': cookieString
                 },
                 timeout: 8000
             });
             data = res.data;
         } catch (e1) {
             console.log('proxy 1 failed', e1.message);
-            const igUrl2 = url.replace(/https:\/\/(www\.)?instagram\.com/i, 'https://ig.123view.com').split('?')[0];
-            const res2 = await axios.get(igUrl2, {
-                headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 8000
-            });
-            data = res2.data;
+            // Fallback to a different style of proxy
+            const igUrl2 = url.replace(/instagram\.com/i, 'ig.123view.com');
+            try {
+                const res2 = await axios.get(igUrl2, {
+                    headers: { 'User-Agent': USER_AGENT, 'Cookie': cookieString },
+                    timeout: 8000
+                });
+                data = res2.data;
+            } catch (e2) {
+                console.log('proxy 2 failed', e2.message);
+                throw e2;
+            }
         }
 
         const $ = cheerio.load(data);

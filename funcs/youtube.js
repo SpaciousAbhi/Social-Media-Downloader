@@ -63,13 +63,25 @@ async function getYoutube(bot, chatId, url, userName) {
 
 async function downloadWithYtdlCore(url, mode, filePath) {
   const ytdl = require('@distube/ytdl-core');
+  const { getCookieString, USER_AGENT } = require('./ytdlp');
+  const cookieString = getCookieString();
+  
+  const options = {
+    requestOptions: {
+      headers: {
+        'User-Agent': USER_AGENT,
+        'Cookie': cookieString
+      }
+    }
+  };
+
   return new Promise((resolve, reject) => {
     const stream = mode === 'audio' 
-        ? ytdl(url, { filter: 'audioonly', quality: 'highestaudio' })
-        : ytdl(url, { filter: 'audioandvideo', quality: 'highest' });
+        ? ytdl(url, { ...options, filter: 'audioonly', quality: 'highestaudio' })
+        : ytdl(url, { ...options, filter: 'audioandvideo', quality: 'highest' });
     
     stream.pipe(fs.createWriteStream(filePath));
-    stream.on('end', () => resolve(filePath));
+    stream.on('finish', () => resolve(filePath));
     stream.on('error', reject);
   });
 }
