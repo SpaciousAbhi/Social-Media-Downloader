@@ -12,7 +12,13 @@ function getCookiesArgs() {
   if (process.env.YTDLP_COOKIES) {
     if (!cookiesPath) {
       cookiesPath = path.join(os.tmpdir(), 'ytdlp_cookies.txt');
-      fs.writeFileSync(cookiesPath, process.env.YTDLP_COOKIES, 'utf8');
+      let rawCookies = process.env.YTDLP_COOKIES;
+      // Fix Heroku stripping newlines by adding them back before domains (like .youtube.com)
+      if (!rawCookies.includes('\n')) {
+          rawCookies = rawCookies.replace(/ (\.[a-z0-9-]+\.[a-z]+)/g, '\n$1');
+          rawCookies = rawCookies.replace(/ (instagram\.com)/g, '\n$1');
+      }
+      fs.writeFileSync(cookiesPath, rawCookies, 'utf8');
       if (process.platform !== 'win32') fs.chmodSync(cookiesPath, 0o600);
       console.log('✅ Injected YTDLP_COOKIES from environment.');
     }
