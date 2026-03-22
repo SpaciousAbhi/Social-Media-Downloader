@@ -147,9 +147,6 @@ async function runYtDlpSimple(args) {
 async function getMetadata(url) {
   // We use manual runYtDlpSimple with --dump-json to avoid yt-dlp-wrap's default -f best
   let extraArgs = [];
-  if (url.includes('youtube.com') || url.includes('youtu.be')) {
-      extraArgs = ['--extractor-args', 'youtube:player_client=android'];
-  }
   const out = await runYtDlpSimple([...extraArgs, '--dump-json', '--no-playlist', '--no-warnings', url]);
   return JSON.parse(out);
 }

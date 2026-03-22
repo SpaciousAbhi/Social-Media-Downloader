@@ -11,16 +11,27 @@ async function downloadInstagram(bot, chatId, url, userName) {
         const axios = require('axios');
         const cheerio = require('cheerio');
         
-        // Convert Instagram URL to Ddinstagram (telegram proxy)
-        const ddUrl = url.replace('instagram.com', 'ddinstagram.com').split('?')[0];
-        
+        // Convert Instagram URL to Ddinstagram (telegram proxy) without www.
+        let ddUrl = url.replace(/https:\/\/(www\.)?instagram\.com/i, 'https://ddinstagram.com').split('?')[0];
+
         console.log('Fetching from Ddinstagram proxy:', ddUrl);
-        const { data } = await axios.get(ddUrl, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
-            },
-            timeout: 10000
-        });
+        let data = '';
+        try {
+            const res = await axios.get(ddUrl, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                },
+                timeout: 8000
+            });
+            data = res.data;
+        } catch (e1) {
+            console.log('proxy 1 failed', e1.message);
+            const igUrl2 = url.replace(/https:\/\/(www\.)?instagram\.com/i, 'https://ig.123view.com').split('?')[0];
+            const res2 = await axios.get(igUrl2, {
+                headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 8000
+            });
+            data = res2.data;
+        }
 
         const $ = cheerio.load(data);
         const videoUrl = $('meta[property="og:video"]').attr('content');
@@ -55,12 +66,44 @@ async function downloadInstagram(bot, chatId, url, userName) {
         await bot.deleteMessage(chatId, load.message_id);
 
     } catch (err) {
-        console.error('downloadInstagram error:', err.message);
-        bot.editMessageText(`❌ *Instagram Error:* \`Could not extract post (Private or Blocked)\``, { 
-            chat_id: chatId, 
-            message_id: load.message_id,
-            parse_mode: 'Markdown' 
-        });
+        console.error('proxy download Instagram error:', err.message);
+        
+        try {
+            console.log('Attempting final fallback with yt-dlp for Instagram...');
+            bot.editMessageText('⚠️ *Proxy blocked! Falling back to raw extraction...*', { chat_id: chatId, message_id: load.message_id, parse_mode: 'Markdown' }).catch(()=>{});
+            
+            let lastUpdate = 0;
+            const filePath = await downloadWithYtDlp(url, 'video', (p) => {
+              const now = Date.now();
+              if (now - lastUpdate > 2000) {
+                lastUpdate = now;
+                const bar = getProgressBar(p.percent);
+                bot.editMessageText(`📥 *Downloading via yt-dlp...*\n\n${bar}\n\n⚡️ *Speed:* \`${p.currentSpeed || '...'}\`\n⏳ *ETA:* \`${p.eta || '...'}\``, {
+                  chat_id: chatId,
+                  message_id: load.message_id,
+                  parse_mode: 'Markdown'
+                }).catch(() => {});
+              }
+            });
+
+            await bot.editMessageText('📤 *Uploading to Telegram...*', { chat_id: chatId, message_id: load.message_id, parse_mode: 'Markdown' });
+            
+            await bot.sendVideo(chatId, filePath, { 
+              caption: `✅ *Success!* Instagram content ready.\n\n👤 *Requested by:* @${userName || 'user'}\n🤖 *Bot by:* @Krxuvv`,
+              parse_mode: 'Markdown'
+            });
+            
+            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+            await bot.deleteMessage(chatId, load.message_id);
+
+        } catch (ytErr) {
+            console.error('yt-dlp final fallback error:', ytErr.message);
+            bot.editMessageText(`❌ *Instagram Error:* \`Could not extract post (Private or Blocked)\``, { 
+                chat_id: chatId, 
+                message_id: load.message_id,
+                parse_mode: 'Markdown' 
+            });
+        }
     }
 }
 
