@@ -21,18 +21,21 @@
   "engines": {
     "node": "20.x"
   },
-
   "bugs": {
     "url": "https://github.com/Krxuv/Social-Media-Downloader/issues"
   },
   "homepage": "https://github.com/Krxuv/Social-Media-Downloader#readme",
   "dependencies": {
+    "@bochilteam/scraper": "^5.0.1",
     "axios": "^1.5.0",
+    "btch-downloader": "^6.0.25",
     "cheerio": "^1.0.0-rc.12",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "fluent-ffmpeg": "^2.1.2",
     "google-sr": "^3.2.1",
+    "instagram-url-direct": "^2.0.7",
+    "nayan-media-downloader": "^0.0.1-security",
     "network-speed": "^2.1.1",
     "node-telegram-bot-api": "^0.63.0",
     "qs": "^6.11.2",
@@ -40,7 +43,7 @@
     "request-promise": "^4.2.6",
     "spotify-uri": "^4.0.0",
     "tesseract.js": "^5.0.2",
-    "yt-dlp-wrap": "^2.3.12",
-    "y2mate-api": "github:krxuv/y2mate-api"
+    "y2mate-api": "github:krxuv/y2mate-api",
+    "yt-dlp-wrap": "^2.3.12"
   }
 }
