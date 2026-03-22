@@ -6,6 +6,28 @@ const { promisify } = require('util');
 
 const execFileAsync = promisify(execFile);
 
+// Cookie Handler
+let cookiesPath = null;
+function getCookiesArgs() {
+  if (process.env.YTDLP_COOKIES) {
+    if (!cookiesPath) {
+      cookiesPath = path.join(os.tmpdir(), 'ytdlp_cookies.txt');
+      fs.writeFileSync(cookiesPath, process.env.YTDLP_COOKIES, 'utf8');
+      if (process.platform !== 'win32') fs.chmodSync(cookiesPath, 0o600);
+      console.log('✅ Injected YTDLP_COOKIES from environment.');
+    }
+    return ['--cookies', cookiesPath];
+  }
+  
+  // Fallback to local cookies.txt if it exists
+  const localCookies = path.join(process.cwd(), 'cookies.txt');
+  if (fs.existsSync(localCookies)) {
+      return ['--cookies', localCookies];
+  }
+
+  return [];
+}
+
 let YtDlpWrap;
 try {
   const mod = require('yt-dlp-wrap');
@@ -72,13 +94,14 @@ const isMac = process.platform === 'darwin';
 
 async function runYtDlp(args, onProgress) {
   const bin = await ensureYtDlpBinary();
+  const cookiesArgs = getCookiesArgs();
   const wrapper = new YtDlpWrap(bin);
   
   return new Promise((resolve, reject) => {
     let stdout = '';
     let stderr = '';
     
-    wrapper.exec(args)
+    wrapper.exec([...cookiesArgs, ...args])
       .on('progress', (progress) => {
         if (onProgress && progress.percent !== undefined) {
           onProgress(progress);
@@ -103,8 +126,9 @@ async function runYtDlp(args, onProgress) {
 // Optimized runYtDlp for simple execution
 async function runYtDlpSimple(args) {
     const bin = await ensureYtDlpBinary();
+    const cookiesArgs = getCookiesArgs();
     try {
-      const { stdout } = await execFileAsync(bin, args, { maxBuffer: 50 * 1024 * 1024 });
+      const { stdout } = await execFileAsync(bin, [...cookiesArgs, ...args], { maxBuffer: 50 * 1024 * 1024 });
       return stdout;
     } catch (err) {
       const stderr = err && err.stderr ? String(err.stderr) : '';
@@ -136,10 +160,11 @@ async function downloadWithYtDlp(url, mode /* 'video'|'audio' */, onProgress, cu
   args.push('-o', tmpl, url);
 
   const bin = await ensureYtDlpBinary();
+  const cookiesArgs = getCookiesArgs();
   const wrapper = new YtDlpWrap(bin);
   
   return new Promise((resolve, reject) => {
-    wrapper.exec(args)
+    wrapper.exec([...cookiesArgs, ...args])
       .on('progress', (p) => {
         if (onProgress) onProgress(p);
       })
