@@ -58,7 +58,16 @@ async function downloadInstagram(bot, chatId, url, userName) {
                         });
                         data = res2.data;
                     } catch (e2) {
-                        throw e2;
+                        console.log('Proxy 2 failed, trying final Cobalt fallback...');
+                        try {
+                            const { downloadViaCobalt } = require('./cobalt');
+                            const cobaltUrl = await downloadViaCobalt(url, 'video');
+                            if (cobaltUrl) {
+                                data = `<meta property="og:video" content="${cobaltUrl}">`;
+                            }
+                        } catch (eC) {
+                            throw e2;
+                        }
                     }
                 }
             }

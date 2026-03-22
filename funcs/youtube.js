@@ -78,11 +78,41 @@ async function downloadWithYtdlCore(url, mode, filePath) {
     }
   };
 
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
+    let info;
     try {
-        const stream = mode === 'audio' 
-            ? ytdl(url, { ...options, filter: 'audioonly', quality: 'highestaudio' })
-            : ytdl(url, { ...options, filter: 'audioandvideo', quality: 'highest' });
+      console.log('Fetching YTDL info with agent...');
+      info = await ytdl.getInfo(url, { agent });
+    } catch (err) {
+      console.log('YTDL getInfo failed, trying Cobalt fallback...');
+      try {
+        const { downloadViaCobalt } = require('./cobalt');
+        // Cobalt will download directly to filePath and return filePath on success
+        const cobaltResultPath = await downloadViaCobalt(url, mode, filePath);
+        return resolve(cobaltResultPath);
+      } catch (cobErr) {
+        console.error('Cobalt fallback also failed:', cobErr.message);
+        return reject(err); // Throw original ytdl error if cobalt also fails
+      }
+    }
+
+    let format;
+    if (mode === 'audio') {
+      format = ytdl.chooseFormat(info.formats, { quality: 'highestaudio', filter: 'audioonly' });
+    } else {
+      // Try to find progressive formats first (itag 18, 22) as they are less likely to be blocked/throttled
+      format = info.formats.find(f => f.itag === 22 && f.container === 'mp4') || info.formats.find(f => f.itag === 18 && f.container === 'mp4');
+      if (!format) {
+        format = ytdl.chooseFormat(info.formats, { quality: 'highestvideo', filter: 'videoandaudio' });
+      }
+    }
+
+    if (!format) {
+      return reject(new Error('No suitable format found for download.'));
+    }
+
+    try {
+        const stream = ytdl(url, { format: format, agent: agent, requestOptions: options.requestOptions });
         
         const fileStream = fs.createWriteStream(filePath);
         stream.pipe(fileStream);
