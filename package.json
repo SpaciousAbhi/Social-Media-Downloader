@@ -27,6 +27,8 @@
   "homepage": "https://github.com/Krxuv/Social-Media-Downloader#readme",
   "dependencies": {
     "@bochilteam/scraper": "^5.0.1",
+    "@distube/ytdl-core": "^4.16.12",
+    "api-dylux": "^1.8.6",
     "axios": "^1.5.0",
     "btch-downloader": "^6.0.25",
     "cheerio": "^1.0.0-rc.12",

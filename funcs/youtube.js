@@ -22,7 +22,14 @@ async function getYoutube(bot, chatId, url, userName) {
   let load = await bot.sendMessage(chatId, '🛰 *Searching YouTube...*', { parse_mode: 'Markdown' });
   try { 
     const { getMetadata } = require('./ytdlp');
-    const meta = await getMetadata(url);
+    let meta = { title: 'YouTube Video', uploader: '-', thumbnail: null };
+    
+    try {
+        const result = await getMetadata(url);
+        if (result && result.title) meta = result;
+    } catch (metaErr) {
+        console.log('getMetadata failed, using fallback metadata:', metaErr.message);
+    }
 
     // Redesign caption
     let caption = `🎥 *YOUTUBE CONTENT*\n`;
@@ -54,22 +61,46 @@ async function getYoutube(bot, chatId, url, userName) {
   }
 }
 
+async function downloadWithYtdlCore(url, mode, filePath) {
+  const ytdl = require('@distube/ytdl-core');
+  return new Promise((resolve, reject) => {
+    const stream = mode === 'audio' 
+        ? ytdl(url, { filter: 'audioonly', quality: 'highestaudio' })
+        : ytdl(url, { filter: 'audioandvideo', quality: 'highest' });
+    
+    stream.pipe(fs.createWriteStream(filePath));
+    stream.on('end', () => resolve(filePath));
+    stream.on('error', reject);
+  });
+}
+
 async function getYoutubeVideo(bot, chatId, url, ind, userName) {
   let load = await bot.sendMessage(chatId, '🛰 *Initializing download...*', { parse_mode: 'Markdown' });
   try {
     let lastUpdate = 0;
-    const filePath = await downloadWithYtDlp(url, 'video', (p) => {
-      const now = Date.now();
-      if (now - lastUpdate > 2000) {
-        lastUpdate = now;
-        const bar = getProgressBar(p.percent);
-        bot.editMessageText(`📥 *Downloading YouTube Video...*\n\n${bar}\n\n⚡️ *Speed:* \`${p.currentSpeed || '...'}\`\n⏳ *ETA:* \`${p.eta || '...'}\``, {
-          chat_id: chatId,
-          message_id: load.message_id,
-          parse_mode: 'Markdown'
-        }).catch(() => {});
-      }
-    });
+    const path = require('path');
+    const os = require('os');
+    const tempPath = path.join(os.tmpdir(), `ytdl_${Math.random().toString(36).substring(7)}.mp4`);
+    
+    let filePath;
+    try {
+        filePath = await downloadWithYtDlp(url, 'video', (p) => {
+          const now = Date.now();
+          if (now - lastUpdate > 2000) {
+            lastUpdate = now;
+            const bar = getProgressBar(p.percent);
+            bot.editMessageText(`📥 *Downloading YouTube Video...*\n\n${bar}\n\n⚡️ *Speed:* \`${p.currentSpeed || '...'}\`\n⏳ *ETA:* \`${p.eta || '...'}\``, {
+              chat_id: chatId,
+              message_id: load.message_id,
+              parse_mode: 'Markdown'
+            }).catch(() => {});
+          }
+        });
+    } catch (err) {
+        console.log('yt-dlp failed, falling back to ytdl-core:', err.message);
+        bot.editMessageText(`⚠️ *YouTube block detected, using alternate extraction engine...*`, { chat_id: chatId, message_id: load.message_id, parse_mode: 'Markdown' }).catch(()=>{});
+        filePath = await downloadWithYtdlCore(url, 'video', tempPath);
+    }
 
     await bot.editMessageText('📤 *Uploading to Telegram...*', { chat_id: chatId, message_id: load.message_id, parse_mode: 'Markdown' });
     await bot.sendChatAction(chatId, 'upload_video');
@@ -95,18 +126,29 @@ async function getYoutubeAudio(bot, chatId, url, ind, userName) {
   let load = await bot.sendMessage(chatId, '🛰 *Initializing audio conversion...*', { parse_mode: 'Markdown' });
   try {
     let lastUpdate = 0;
-    const filePath = await downloadWithYtDlp(url, 'audio', (p) => {
-      const now = Date.now();
-      if (now - lastUpdate > 2000) {
-        lastUpdate = now;
-        const bar = getProgressBar(p.percent);
-        bot.editMessageText(`📥 *Downloading & Converting Audio...*\n\n${bar}\n\n⚡️ *Speed:* \`${p.currentSpeed || '...'}\`\n⏳ *ETA:* \`${p.eta || '...'}\``, {
-          chat_id: chatId,
-          message_id: load.message_id,
-          parse_mode: 'Markdown'
-        }).catch(() => {});
-      }
-    });
+    const path = require('path');
+    const os = require('os');
+    const tempPath = path.join(os.tmpdir(), `ytdl_${Math.random().toString(36).substring(7)}.mp3`);
+
+    let filePath;
+    try {
+        filePath = await downloadWithYtDlp(url, 'audio', (p) => {
+          const now = Date.now();
+          if (now - lastUpdate > 2000) {
+            lastUpdate = now;
+            const bar = getProgressBar(p.percent);
+            bot.editMessageText(`📥 *Downloading & Converting Audio...*\n\n${bar}\n\n⚡️ *Speed:* \`${p.currentSpeed || '...'}\`\n⏳ *ETA:* \`${p.eta || '...'}\``, {
+              chat_id: chatId,
+              message_id: load.message_id,
+              parse_mode: 'Markdown'
+            }).catch(() => {});
+          }
+        });
+    } catch (err) {
+        console.log('yt-dlp failed, falling back to ytdl-core:', err.message);
+        bot.editMessageText(`⚠️ *YouTube block detected, using alternate extraction engine...*`, { chat_id: chatId, message_id: load.message_id, parse_mode: 'Markdown' }).catch(()=>{});
+        filePath = await downloadWithYtdlCore(url, 'audio', tempPath);
+    }
 
     await bot.editMessageText('📤 *Uploading to Telegram...*', { chat_id: chatId, message_id: load.message_id, parse_mode: 'Markdown' });
     await bot.sendChatAction(chatId, 'upload_audio');
