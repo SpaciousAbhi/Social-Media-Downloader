@@ -20,11 +20,11 @@ const { googleSearch } = require('./funcs/google')
 const { gitClone } = require('./funcs/github')
 const { getNetworkUploadSpeed, getNetworkDownloadSpeed, evaluateBot, executeBot } = require('./funcs/dev')
 const { telegraphUpload, Pomf2Upload, Ocr } = require('./funcs/images')
-const { readDb, writeDb, addUserDb } = require('./funcs/database')
-const { getBuffer, resolveUrl, getBanned } = require('./funcs/functions')
+const { readDb, writeDb, addUserDb } = require('./funcs/database');
+const { getBuffer, resolveUrl, getBanned } = require('./funcs/functions');
 
 // Ensure necessary directories exist
-['content', 'images'].forEach(dir => {
+;['content', 'images'].forEach(dir => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
