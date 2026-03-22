@@ -159,9 +159,6 @@ async function downloadWithYtDlp(url, mode /* 'video'|'audio' */, onProgress, cu
   const tmpl = path.join(outDir, `ytdlp_${id}_%(title).100s.%(ext)s`);
 
   let args = ['--no-playlist'];
-  if (url.includes('youtube.com') || url.includes('youtu.be')) {
-      args.push('--extractor-args', 'youtube:player_client=android');
-  }
   if (mode === 'audio') {
     args.push('-x', '--audio-format', 'mp3', '--audio-quality', '0');
   } else {
