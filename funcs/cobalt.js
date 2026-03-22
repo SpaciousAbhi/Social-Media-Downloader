@@ -19,18 +19,17 @@ async function downloadViaCobalt(url, mode = 'video', filePath = null) {
     for (const instance of COBALT_INSTANCES) {
         try {
             console.log(`Trying Cobalt instance: ${instance}`);
-            const response = await axios.post(`${instance}/api/json`, {
+            const response = await axios.post(`${instance}/`, {
                 url: url,
                 videoQuality: '720',
                 audioFormat: 'mp3',
-                downloadMode: mode === 'audio' ? 'audio' : 'video',
-                filenameStyle: 'pretty'
+                downloadMode: mode === 'audio' ? 'audio' : 'video'
             }, {
                 headers: {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json'
                 },
-                timeout: 15000
+                timeout: 20000
             });
 
             let mediaUrl = '';
