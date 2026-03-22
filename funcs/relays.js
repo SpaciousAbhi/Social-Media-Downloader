@@ -2,31 +2,37 @@ const axios = require('axios');
 
 const COBALT_INSTANCES = [
     'https://cobalt-api.meowing.de',
-    'https://cobalt-backend.canine.tools',
-    'https://kityune.imput.net',
-    'https://blossom.imput.net',
-    'https://nachos.imput.net'
+    'https://cobalt-backend.canine.tools'
+];
+
+const INVIDIOUS_INSTANCES = [
+    'https://inv.nadeko.net',
+    'https://yewtu.be',
+    'https://invidious.nerdvpn.de'
 ];
 
 /**
- * Universal media relay downloader
+ * Universal media relay downloader (Relay Cluster v4 - Verified)
  * @param {string} url - The social media URL
  * @param {string} mode - 'video' or 'audio'
  * @param {string} [filePath] - Optional local path to save the file
  * @returns {Promise<string>} - Media URL or local path
  */
 async function downloadViaRelay(url, mode = 'video', filePath = null) {
-    console.log(`Starting relay extraction for: ${url} (mode: ${mode})`);
+    console.log(`[Relay v4] Starting extraction for: ${url}`);
 
-    // 1. Try Global Relays (Cobalt v10+)
+    // 1. Try Cobalt Cluster (Root POST v10+)
     for (const instance of COBALT_INSTANCES) {
         try {
             console.log(`Trying Cobalt relay: ${instance}`);
             const response = await axios.post(`${instance}/`, {
                 url: url
-                // Minimal body to avoid 400 errors on v10+
             }, {
-                headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                headers: { 
+                    'Accept': 'application/json', 
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                },
                 timeout: 15000
             });
 
@@ -40,9 +46,35 @@ async function downloadViaRelay(url, mode = 'video', filePath = null) {
         }
     }
 
-    // 2. Try VKRDownloader API
+    // 2. Platform-Specific: Invidious for YouTube
+    if (url.includes('youtube.com') || url.includes('youtu.be')) {
+        const videoId = url.split('v=')[1]?.split('&')[0] || url.split('youtu.be/')[1]?.split('?')[0];
+        if (videoId) {
+            for (const instance of INVIDIOUS_INSTANCES) {
+                try {
+                    console.log(`Trying Invidious mirror: ${instance}`);
+                    const invUrl = `${instance}/api/v1/videos/${videoId}`;
+                    const resI = await axios.get(invUrl, { timeout: 10000 });
+                    if (resI.data && resI.data.formatStreams) {
+                        // Prefer 720p or 360p progressive MP4
+                        const stream = resI.data.formatStreams.find(s => s.qualityLabel === '720p') || 
+                                       resI.data.formatStreams.find(s => s.qualityLabel === '360p') || 
+                                       resI.data.formatStreams[0];
+                        if (stream && stream.url) {
+                             console.log(`Invidious success via ${instance}`);
+                             return await handleMediaResult(stream.url, filePath);
+                        }
+                    }
+                } catch (err) {
+                    console.error(`Invidious mirror ${instance} failed:`, err.message);
+                }
+            }
+        }
+    }
+
+    // 3. Try VKRDownloader (Verified Bot-Friendly)
     try {
-        console.log('Trying VKRDownloader relay...');
+        console.log('Trying VKRDownloader direct relay...');
         const vkrUrl = `https://vkrdownloader.org/server/?api_key=vkrdownloader&vkr=${encodeURIComponent(url)}`;
         const resV = await axios.get(vkrUrl, { timeout: 15000 });
         if (resV.data && resV.data.data && resV.data.data.download) {
@@ -52,47 +84,11 @@ async function downloadViaRelay(url, mode = 'video', filePath = null) {
                 return await handleMediaResult(dl.url, filePath);
             }
         }
-        if (resV.data?.error) console.log('VKR rejected:', resV.data.error);
     } catch (err) {
         console.error('VKR relay failed:', err.response?.data || err.message);
     }
 
-    // 3. Try TiklyDown (Good for TikTok/IG)
-    try {
-        console.log('Trying TiklyDown relay...');
-        const tikUrl = `https://api.tiklydown.eu.org/api/download?url=${encodeURIComponent(url)}`;
-        const resT = await axios.get(tikUrl, { timeout: 15000 });
-        const mediaUrl = resT.data?.data?.video?.noWatermark || resT.data?.data?.images?.[0]?.url;
-        if (mediaUrl) {
-            console.log('TiklyDown relay success!');
-            return await handleMediaResult(mediaUrl, filePath);
-        }
-    } catch (err) {
-        console.error('TiklyDown relay failed:', err.message);
-    }
-
-    // 4. Platform-Specific God-Tier Fallback: Invidious for YouTube
-    if (url.includes('youtube.com') || url.includes('youtu.be')) {
-        try {
-            console.log('Trying Invidious mirror relay...');
-            const videoId = url.split('v=')[1]?.split('&')[0] || url.split('youtu.be/')[1]?.split('?')[0];
-            if (videoId) {
-                const invBtn = `https://invidious.proto.id/api/v1/videos/${videoId}`;
-                const resI = await axios.get(invBtn, { timeout: 10000 });
-                if (resI.data && resI.data.formatStreams) {
-                    const stream = resI.data.formatStreams.find(s => s.qualityLabel === '720p') || resI.data.formatStreams[0];
-                    if (stream && stream.url) {
-                         console.log('Invidious success!');
-                         return await handleMediaResult(stream.url, filePath);
-                    }
-                }
-            }
-        } catch (err) {
-            console.error('Invidious fallback failed:', err.message);
-        }
-    }
-
-    throw new Error('All relay providers failed');
+    throw new Error('All high-availability relay providers failed');
 }
 
 async function handleMediaResult(mediaUrl, filePath) {
@@ -101,7 +97,7 @@ async function handleMediaResult(mediaUrl, filePath) {
     const streamRes = await axios.get(mediaUrl, { 
         responseType: 'stream', 
         timeout: 60000,
-        headers: { 'User-Agent': 'Mozilla/5.0' }
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
     });
     const fs = require('fs');
     const fileStream = fs.createWriteStream(filePath);

@@ -215,7 +215,11 @@ async function downloadWithYtDlp(url, mode /* 'video'|'audio' */, onProgress, cu
   if (mode === 'audio') {
     args.push('-x', '--audio-format', 'mp3', '--audio-quality', '0');
   } else {
-    args.push('-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best', '--merge-output-format', 'mp4');
+    args.push(
+        '-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best/best',
+        '--merge-output-format', 'mp4',
+        '--no-warnings'
+    );
   }
   args.push('-o', tmpl, url);
 
