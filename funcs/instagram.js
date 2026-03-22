@@ -15,31 +15,41 @@ async function downloadInstagram(bot, chatId, url, userName) {
         let ddUrl = url.replace(/https:\/\/(www\.)?instagram\.com/i, 'https://ddinstagram.com').split('?')[0];
 
         const { getCookieString, USER_AGENT } = require('./ytdlp');
-        const cookieString = getCookieString();
+        const cookieString = getCookieString('instagram.com');
 
         console.log('Fetching from Instagram proxy:', ddUrl);
         let data = '';
         try {
+            console.log('Attempting Instagram Proxy 1...');
             const res = await axios.get(ddUrl, {
                 headers: { 'User-Agent': USER_AGENT, 'Cookie': cookieString },
                 timeout: 8000
             });
             data = res.data;
         } catch (e1) {
-            console.log('proxy 1 failed', e1.message);
-            // Try an indirect viewer that often works when direct proxies fail
+            console.log('Proxy 1 failed, trying btch-downloader fallback...');
             try {
-                const igId = url.split('/reel/')[1]?.split('/')[0] || url.split('/p/')[1]?.split('/')[0];
-                const viewerUrl = `https://imginn.com/p/${igId}/`;
-                console.log('Attempting viewer fallback:', viewerUrl);
-                const resV = await axios.get(viewerUrl, {
-                    headers: { 'User-Agent': USER_AGENT },
-                    timeout: 8000
-                });
-                data = resV.data;
-            } catch (eV) {
-                console.log('viewer fallback failed', eV.message);
-                throw eV;
+                const btch = require('btch-downloader');
+                const btchRes = await btch.igdl(url);
+                if (btchRes && btchRes.length > 0) {
+                    const media = btchRes[0].url || btchRes[0].thumbnail;
+                    if (media) {
+                        data = `<meta property="og:video" content="${media}">`;
+                    }
+                }
+                if (!data) throw new Error('Btch-downloader returned no data');
+            } catch (eB) {
+                console.log('Btch-downloader failed, trying proxy 2...');
+                const igUrl2 = url.replace(/instagram\.com/i, 'ig.123view.com');
+                try {
+                    const res2 = await axios.get(igUrl2, {
+                        headers: { 'User-Agent': USER_AGENT, 'Cookie': cookieString },
+                        timeout: 8000
+                    });
+                    data = res2.data;
+                } catch (e2) {
+                    throw e2;
+                }
             }
         }
 

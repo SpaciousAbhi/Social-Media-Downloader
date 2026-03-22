@@ -64,7 +64,7 @@ async function getYoutube(bot, chatId, url, userName) {
 async function downloadWithYtdlCore(url, mode, filePath) {
   const ytdl = require('@distube/ytdl-core');
   const { getCookieJSON, USER_AGENT } = require('./ytdlp');
-  const cookiesJSON = getCookieJSON();
+  const cookiesJSON = getCookieJSON('youtube.com');
   
   // Create agent with cookies JSON array (proper ytdl-core v4+ format)
   const agent = ytdl.createAgent(cookiesJSON);

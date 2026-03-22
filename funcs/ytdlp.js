@@ -22,7 +22,7 @@ function fixCookies(cookieData) {
     return finalCookies;
 }
 
-function getCookieString() {
+function getCookieString(domainFilter) {
     const cookieData = process.env.YTDLP_COOKIES;
     if (!cookieData) return '';
     
@@ -33,13 +33,15 @@ function getCookieString() {
         if (!line.trim() || line.startsWith('#')) continue;
         const parts = line.split('\t');
         if (parts.length >= 7) {
+            const domain = parts[0];
+            if (domainFilter && !domain.includes(domainFilter)) continue;
             cookies.push(`${parts[5]}=${parts[6].trim()}`);
         }
     }
     return cookies.join('; ');
 }
 
-function getCookieJSON() {
+function getCookieJSON(domainFilter) {
     const cookieData = process.env.YTDLP_COOKIES;
     if (!cookieData) return [];
     
@@ -50,8 +52,10 @@ function getCookieJSON() {
         if (!line.trim() || line.startsWith('#')) continue;
         const parts = line.split('\t');
         if (parts.length >= 7) {
+            const domain = parts[0];
+            if (domainFilter && !domain.includes(domainFilter)) continue;
             cookies.push({
-                domain: parts[0],
+                domain: domain,
                 path: parts[2],
                 name: parts[5],
                 value: parts[6].trim()
