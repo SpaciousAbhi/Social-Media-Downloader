@@ -63,26 +63,37 @@ async function getYoutube(bot, chatId, url, userName) {
 
 async function downloadWithYtdlCore(url, mode, filePath) {
   const ytdl = require('@distube/ytdl-core');
-  const { getCookieString, USER_AGENT } = require('./ytdlp');
-  const cookieString = getCookieString();
+  const { getCookieJSON, USER_AGENT } = require('./ytdlp');
+  const cookiesJSON = getCookieJSON();
   
+  // Create agent with cookies JSON array (proper ytdl-core v4+ format)
+  const agent = ytdl.createAgent(cookiesJSON);
+
   const options = {
+    agent: agent,
     requestOptions: {
       headers: {
-        'User-Agent': USER_AGENT,
-        'Cookie': cookieString
+        'User-Agent': USER_AGENT
       }
     }
   };
 
   return new Promise((resolve, reject) => {
-    const stream = mode === 'audio' 
-        ? ytdl(url, { ...options, filter: 'audioonly', quality: 'highestaudio' })
-        : ytdl(url, { ...options, filter: 'audioandvideo', quality: 'highest' });
-    
-    stream.pipe(fs.createWriteStream(filePath));
-    stream.on('finish', () => resolve(filePath));
-    stream.on('error', reject);
+    try {
+        const stream = mode === 'audio' 
+            ? ytdl(url, { ...options, filter: 'audioonly', quality: 'highestaudio' })
+            : ytdl(url, { ...options, filter: 'audioandvideo', quality: 'highest' });
+        
+        const fileStream = fs.createWriteStream(filePath);
+        stream.pipe(fileStream);
+        fileStream.on('finish', () => resolve(filePath));
+        stream.on('error', (err) => {
+            console.error('ytdl-core stream error:', err.message);
+            reject(err);
+        });
+    } catch (e) {
+        reject(e);
+    }
   });
 }
 

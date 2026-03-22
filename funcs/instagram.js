@@ -21,26 +21,25 @@ async function downloadInstagram(bot, chatId, url, userName) {
         let data = '';
         try {
             const res = await axios.get(ddUrl, {
-                headers: {
-                    'User-Agent': USER_AGENT,
-                    'Cookie': cookieString
-                },
+                headers: { 'User-Agent': USER_AGENT, 'Cookie': cookieString },
                 timeout: 8000
             });
             data = res.data;
         } catch (e1) {
             console.log('proxy 1 failed', e1.message);
-            // Fallback to a different style of proxy
-            const igUrl2 = url.replace(/instagram\.com/i, 'ig.123view.com');
+            // Try an indirect viewer that often works when direct proxies fail
             try {
-                const res2 = await axios.get(igUrl2, {
-                    headers: { 'User-Agent': USER_AGENT, 'Cookie': cookieString },
+                const igId = url.split('/reel/')[1]?.split('/')[0] || url.split('/p/')[1]?.split('/')[0];
+                const viewerUrl = `https://imginn.com/p/${igId}/`;
+                console.log('Attempting viewer fallback:', viewerUrl);
+                const resV = await axios.get(viewerUrl, {
+                    headers: { 'User-Agent': USER_AGENT },
                     timeout: 8000
                 });
-                data = res2.data;
-            } catch (e2) {
-                console.log('proxy 2 failed', e2.message);
-                throw e2;
+                data = resV.data;
+            } catch (eV) {
+                console.log('viewer fallback failed', eV.message);
+                throw eV;
             }
         }
 

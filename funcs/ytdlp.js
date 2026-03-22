@@ -39,6 +39,28 @@ function getCookieString() {
     return cookies.join('; ');
 }
 
+function getCookieJSON() {
+    const cookieData = process.env.YTDLP_COOKIES;
+    if (!cookieData) return [];
+    
+    const fixed = fixCookies(cookieData);
+    const lines = fixed.split('\n');
+    const cookies = [];
+    for (const line of lines) {
+        if (!line.trim() || line.startsWith('#')) continue;
+        const parts = line.split('\t');
+        if (parts.length >= 7) {
+            cookies.push({
+                domain: parts[0],
+                path: parts[2],
+                name: parts[5],
+                value: parts[6].trim()
+            });
+        }
+    }
+    return cookies;
+}
+
 function getCookiesArgs() {
     const cookieData = process.env.YTDLP_COOKIES;
     if (cookieData) {
@@ -221,5 +243,6 @@ module.exports = {
   downloadWithYtDlp,
   getMetadata,
   getCookieString,
+  getCookieJSON,
   USER_AGENT
 };
