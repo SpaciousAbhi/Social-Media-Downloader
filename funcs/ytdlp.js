@@ -146,7 +146,11 @@ async function runYtDlpSimple(args) {
 
 async function getMetadata(url) {
   // We use manual runYtDlpSimple with --dump-json to avoid yt-dlp-wrap's default -f best
-  const out = await runYtDlpSimple(['--dump-json', '--no-playlist', '--no-warnings', url]);
+  let extraArgs = [];
+  if (url.includes('youtube.com') || url.includes('youtu.be')) {
+      extraArgs = ['--extractor-args', 'youtube:player_client=android'];
+  }
+  const out = await runYtDlpSimple([...extraArgs, '--dump-json', '--no-playlist', '--no-warnings', url]);
   return JSON.parse(out);
 }
 
@@ -158,6 +162,9 @@ async function downloadWithYtDlp(url, mode /* 'video'|'audio' */, onProgress, cu
   const tmpl = path.join(outDir, `ytdlp_${id}_%(title).100s.%(ext)s`);
 
   let args = ['--no-playlist'];
+  if (url.includes('youtube.com') || url.includes('youtu.be')) {
+      args.push('--extractor-args', 'youtube:player_client=android');
+  }
   if (mode === 'audio') {
     args.push('-x', '--audio-format', 'mp3', '--audio-quality', '0');
   } else {

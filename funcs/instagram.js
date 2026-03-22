@@ -6,80 +6,50 @@ const { downloadWithYtDlp, getMetadata } = require('./ytdlp');
 const { getProgressBar } = require('./progress');
 
 async function downloadInstagram(bot, chatId, url, userName) {
-    let load = await bot.sendMessage(chatId, '🛰 *Initializing Instagram download...*', { parse_mode: 'Markdown' });
+    let load = await bot.sendMessage(chatId, '🛰 *Extracting Instagram content via API bypass...*', { parse_mode: 'Markdown' });
     try {
-        const meta = await getMetadata(url);
+        const axios = require('axios');
+        const { data } = await axios.get('https://bk9.fun/download/instagram?url=' + encodeURIComponent(url));
         
-        // Premium formatting for the caption
-        let caption = `📸 *INSTAGRAM CONTENT*\n`;
-        caption += `━━━━━━━━━━━━━━━━━━━━\n`;
-        caption += `📝 *Title:* \`${(meta.title || meta.description || 'Instagram Post').slice(0, 100)}\`\n`;
-        caption += `👤 *Author:* \`${meta.uploader || '-'}\`\n`;
-        caption += `━━━━━━━━━━━━━━━━━━━━\n\n`;
-        caption += `Choose your download format below:`;
-
-        let options = {
-          caption: caption,
-          parse_mode: 'Markdown',
-          reply_markup: JSON.stringify({
-            inline_keyboard: [
-              [{ text: '🎬 Video (Best)', callback_data: getCallbackData('igv', url) }],
-              [{ text: '🎵 Audio (MP3)', callback_data: getCallbackData('iga', url) }]
-            ]
-          })
-        };
-
-        await bot.deleteMessage(chatId, load.message_id);
-        if (meta.thumbnail) {
-            await bot.sendPhoto(chatId, meta.thumbnail, options);
-        } else {
-            await bot.sendMessage(chatId, caption, options);
+        if (!data || !data.status || !data.BK9 || data.BK9.length === 0) {
+            throw new Error('No media found or API failed.');
         }
-    } catch (err) {
-        console.error('downloadInstagram error:', err);
-        bot.editMessageText(`❌ *Instagram Error:* \`${err.message}\``, { 
-            chat_id: chatId, 
-            message_id: load.message_id,
-            parse_mode: 'Markdown' 
-        });
-    }
-}
-
-// Internal function to handle the actual download with progress
-async function handleInstagramDownload(bot, chatId, url, userName) {
-    let load = await bot.sendMessage(chatId, '🛰 *Downloading from Instagram...*', { parse_mode: 'Markdown' });
-    try {
-        let lastUpdate = 0;
-        const filePath = await downloadWithYtDlp(url, 'video', (p) => {
-            const now = Date.now();
-            if (now - lastUpdate > 2000) {
-                lastUpdate = now;
-                const bar = getProgressBar(p.percent);
-                bot.editMessageText(`📥 *Downloading Instagram Video...*\n\n${bar}\n\n⚡️ *Speed:* \`${p.currentSpeed || '...'}\`\n⏳ *ETA:* \`${p.eta || '...'}\``, {
-                    chat_id: chatId,
-                    message_id: load.message_id,
-                    parse_mode: 'Markdown'
-                }).catch(() => {});
-            }
-        });
 
         await bot.editMessageText('📤 *Uploading to Telegram...*', { chat_id: chatId, message_id: load.message_id, parse_mode: 'Markdown' });
-        await bot.sendChatAction(chatId, 'upload_video');
         
-        await bot.sendVideo(chatId, filePath, { 
-            caption: `✅ *Success!* Instagram content ready.\n\n👤 *Requested by:* @${userName || 'user'}\n🤖 *Bot by:* @Krxuvv`,
-            parse_mode: 'Markdown'
-        });
-        
-        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        for (let i = 0; i < data.BK9.length; i++) {
+            const item = data.BK9[i];
+            const mediaUrl = item.url;
+            // Determine type
+            const isVideo = url.includes('reel') || mediaUrl.includes('.mp4');
+            
+            const caption = i === 0 ? `✅ *Success!* Instagram content ready.\n\n👤 *Requested by:* @${userName || 'user'}\n🤖 *Bot by:* @Krxuvv` : '';
+            const options = { caption, parse_mode: 'Markdown' };
+
+            // For reliability with Telegram API on direct URLs, download to buffer first
+            const buffer = await getBuffer(mediaUrl);
+
+            try {
+                if (isVideo) {
+                    await bot.sendChatAction(chatId, 'upload_video');
+                    await bot.sendVideo(chatId, buffer, options);
+                } else {
+                    await bot.sendChatAction(chatId, 'upload_photo');
+                    await bot.sendPhoto(chatId, buffer, options);
+                }
+            } catch (sendErr) {
+                console.error('Failed to send item:', sendErr);
+            }
+        }
         await bot.deleteMessage(chatId, load.message_id);
+
     } catch (err) {
-        console.error('handleInstagramDownload error:', err);
-        return bot.editMessageText(`❌ *Instagram Download Failed*\n\nError: \`${err.message}\``, { 
+        console.error('downloadInstagram error:', err);
+        bot.editMessageText(`❌ *Instagram Error:* \`Could not extract post (Private or Blocked)\``, { 
             chat_id: chatId, 
             message_id: load.message_id,
             parse_mode: 'Markdown' 
-        })
+        });
     }
 }
 
