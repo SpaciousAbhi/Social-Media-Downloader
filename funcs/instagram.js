@@ -20,35 +20,46 @@ async function downloadInstagram(bot, chatId, url, userName) {
         console.log('Fetching from Instagram proxy:', ddUrl);
         let data = '';
         try {
-            console.log('Attempting Instagram Proxy 1...');
+            console.log('Attempting Instagram Proxy 1 (Ddinstagram)...');
             const res = await axios.get(ddUrl, {
                 headers: { 'User-Agent': USER_AGENT, 'Cookie': cookieString },
                 timeout: 8000
             });
             data = res.data;
         } catch (e1) {
-            console.log('Proxy 1 failed, trying btch-downloader fallback...');
+            console.log('Proxy 1 failed, trying vkrdownloader API...');
             try {
-                const btch = require('btch-downloader');
-                const btchRes = await btch.igdl(url);
-                if (btchRes && btchRes.length > 0) {
-                    const media = btchRes[0].url || btchRes[0].thumbnail;
-                    if (media) {
-                        data = `<meta property="og:video" content="${media}">`;
+                const vkrApi = `https://api.vkrdownloader.com/server?vkr=${encodeURIComponent(url)}`;
+                const resV = await axios.get(vkrApi, { timeout: 10000 });
+                if (resV.data && resV.data.data && resV.data.data.download) {
+                    const dl = resV.data.data.download.find(d => d.type === 'video') || resV.data.data.download[0];
+                    if (dl && dl.url) {
+                        data = `<meta property="og:video" content="${dl.url}">`;
                     }
                 }
-                if (!data) throw new Error('Btch-downloader returned no data');
-            } catch (eB) {
-                console.log('Btch-downloader failed, trying proxy 2...');
-                const igUrl2 = url.replace(/instagram\.com/i, 'ig.123view.com');
+                if (!data) throw new Error('VKR returned no media');
+            } catch (eV) {
+                console.log('VKR failed, trying btch-downloader...');
                 try {
-                    const res2 = await axios.get(igUrl2, {
-                        headers: { 'User-Agent': USER_AGENT, 'Cookie': cookieString },
-                        timeout: 8000
-                    });
-                    data = res2.data;
-                } catch (e2) {
-                    throw e2;
+                    const btch = require('btch-downloader');
+                    const btchRes = await btch.igdl(url);
+                    if (btchRes && btchRes.length > 0) {
+                        const media = btchRes[0].url || btchRes[0].thumbnail;
+                        if (media) data = `<meta property="og:video" content="${media}">`;
+                    }
+                    if (!data) throw new Error('Btch returned no data');
+                } catch (eB) {
+                    console.log('Btch failed, trying proxy 2 (123view)...');
+                    const igUrl2 = url.replace(/https:\/\/(www\.)?instagram\.com/i, 'https://ig.123view.com').split('?')[0];
+                    try {
+                        const res2 = await axios.get(igUrl2, {
+                            headers: { 'User-Agent': USER_AGENT, 'Cookie': cookieString },
+                            timeout: 8000
+                        });
+                        data = res2.data;
+                    } catch (e2) {
+                        throw e2;
+                    }
                 }
             }
         }
