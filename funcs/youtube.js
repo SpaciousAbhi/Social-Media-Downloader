@@ -21,12 +21,26 @@ async function getYoutube(bot, chatId, url, userName) {
 
   let load = await bot.sendMessage(chatId, '🛰 *Searching YouTube...*', { parse_mode: 'Markdown' });
   try { 
+    const { getMetadata } = require('./ytdlp');
+    const meta = await getMetadata(url);
+
     // Redesign caption
     let caption = `🎥 *YOUTUBE CONTENT*\n`;
     caption += `━━━━━━━━━━━━━━━━━━━━\n`;
-    caption += `🔗 *Url:* \`${url.slice(0, 50)}...\`\n`;
+    caption += `📝 *Title:* \`${(meta.title || 'YouTube Video').slice(0, 100)}\`\n`;
+    caption += `👤 *Author:* \`${meta.uploader || '-'}\`\n`;
     caption += `━━━━━━━━━━━━━━━━━━━━\n\n`;
     caption += `Choose your download format below:`;
+
+    const options = {
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🎬 Video (Best)', callback_data: getCallbackData('ytdlpv', url) }],
+          [{ text: '🎵 Audio (MP3)', callback_data: getCallbackData('ytdlpa', url) }],
+        ],
+      },
+    }
 
     await bot.deleteMessage(chatId, load.message_id);
     if (meta && meta.thumbnail) {
