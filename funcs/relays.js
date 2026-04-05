@@ -3,13 +3,17 @@ const cheerio = require('cheerio');
 
 const COBALT_INSTANCES = [
     'https://cobalt-api.meowing.de',
-    'https://cobalt-backend.canine.tools'
+    'https://cobalt-backend.canine.tools',
+    'https://api.cobalt.tools',
+    'https://cobalt.q69.it'
 ];
 
 const INVIDIOUS_INSTANCES = [
     'https://inv.nadeko.net',
     'https://yewtu.be',
-    'https://invidious.nerdvpn.de'
+    'https://invidious.nerdvpn.de',
+    'https://inv.tux.pizza',
+    'https://invidious.protokolla.fi'
 ];
 
 /**
@@ -83,6 +87,36 @@ async function yt4kExtract(url) {
 }
 
 /**
+ * Stealth Extraction: SaveFrom API
+ */
+async function saveFromExtract(url) {
+    try {
+        console.log('Trying Stealth SaveFrom extraction...');
+        const res = await axios.post('https://worker.sf-api.com/savefrom.php', new URLSearchParams({
+            url: url,
+            lang: 'en'
+        }).toString(), {
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Origin': 'https://en.savefrom.net',
+                'Referer': 'https://en.savefrom.net/'
+            }
+        });
+        if (res.data && res.data.url) {
+            const media = res.data.url.find(u => u.ext === 'mp4' && u.quality === '720') || res.data.url[0];
+            if (media && media.url) {
+                console.log('SaveFrom Stealth success!');
+                return media.url;
+            }
+        }
+    } catch (err) {
+        console.error('SaveFrom Stealth failed:', err.message);
+    }
+    return null;
+}
+
+/**
  * Universal media relay downloader (Relay Cluster v5 - Stealth Edition)
  * @param {string} url - The social media URL
  * @param {string} mode - 'video' or 'audio'
@@ -98,7 +132,8 @@ async function downloadViaRelay(url, mode = 'video', filePath = null) {
          if (mUrl) return await handleMediaResult(mUrl, filePath);
     }
     if (url.includes('youtube.com') || url.includes('youtu.be')) {
-         const mUrl = await yt4kExtract(url);
+         let mUrl = await yt4kExtract(url);
+         if (!mUrl) mUrl = await saveFromExtract(url);
          if (mUrl) return await handleMediaResult(mUrl, filePath);
     }
 

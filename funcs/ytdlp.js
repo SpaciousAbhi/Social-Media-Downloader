@@ -236,15 +236,21 @@ async function downloadWithYtDlp(url, mode /* 'video'|'audio' */, onProgress, cu
   const wrapper = new YtDlpWrap(bin);
   
   return new Promise((resolve, reject) => {
+    let retryCount = 0;
     const runWrapper = (currentArgs) => {
         wrapper.exec([...cookiesArgs, ...currentArgs])
           .on('progress', (p) => {
             if (onProgress) onProgress(p);
           })
           .on('error', (err) => {
-            if (err.message && err.message.includes('Requested format is not available') && currentArgs.includes('-f')) {
-                console.log('Strict format failed, retrying with best available...');
-                const fallbackArgs = currentArgs.map(a => a.startsWith('bestvideo[ext=mp4]') ? 'best' : a).filter(a => a !== '--merge-output-format' && a !== 'mp4');
+            if (retryCount < 1 && err.message && err.message.includes('Requested format is not available') && currentArgs.includes('-f')) {
+                retryCount++;
+                console.log('Strict format failed, retrying with best available (Attempt 1)...');
+                const fallbackArgs = currentArgs.map(a => {
+                    if (a === '-f') return a;
+                    if (a.includes('bestvideo')) return 'best';
+                    return a;
+                }).filter(a => a !== '--merge-output-format' && a !== 'mp4');
                 // Re-run with simplified best format
                 runWrapper(fallbackArgs);
             } else {
@@ -258,7 +264,15 @@ async function downloadWithYtDlp(url, mode /* 'video'|'audio' */, onProgress, cu
                 .map(f => ({ f, p: path.join(outDir, f), m: fs.statSync(path.join(outDir, f)).mtimeMs }))
                 .sort((a, b) => b.m - a.m);
     
-              if (!files[0]) reject(new Error('Download produced no file'));
+              if (!files[0]) {
+                  if (retryCount < 1) {
+                      retryCount++;
+                      console.log('No file produced, retrying with raw URL...');
+                      runWrapper(['-o', tmpl, url]);
+                  } else {
+                      reject(new Error('Download produced no file'));
+                  }
+              }
               else resolve(files[0].p);
           });
     };
