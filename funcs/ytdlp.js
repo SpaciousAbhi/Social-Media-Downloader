@@ -9,6 +9,8 @@ const execFileAsync = promisify(execFile);
 // Cookie Handler
 let cookiesPath = null;
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+const isWin = process.platform === 'win32';
+const isMac = process.platform === 'darwin';
 
 function fixCookies(cookieData) {
     if (!cookieData) return '';
@@ -148,8 +150,7 @@ async function ensureYtDlpBinary() {
   return binPath;
 }
 
-const isWin = process.platform === 'win32';
-const isMac = process.platform === 'darwin';
+const isMac_fallback = process.platform === 'darwin';
 
 async function runYtDlp(args, onProgress) {
   const bin = await ensureYtDlpBinary();
@@ -214,12 +215,14 @@ async function downloadWithYtDlp(url, mode /* 'video'|'audio' */, onProgress, cu
   let args = ['--no-playlist', '--user-agent', USER_AGENT];
   if (mode === 'audio') {
     args.push('-x', '--audio-format', 'mp3', '--audio-quality', '0');
-  } else {
+  } else if (url.includes('youtube.com') || url.includes('youtu.be')) {
     args.push(
         '-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best/best',
         '--merge-output-format', 'mp4',
         '--no-warnings'
     );
+  } else {
+    args.push('-f', 'best', '--no-warnings');
   }
   args.push('-o', tmpl, url);
 
