@@ -9,6 +9,9 @@ const TelegramBot = require('node-telegram-bot-api')
 const fs = require('fs')
 const path = require('path')
 
+const mountReclip = require('./reclipApi');
+mountReclip(app);
+
 // Import functions
 const { getTiktokInfo, tiktokVideo, tiktokAudio } = require('./funcs/tiktok')
 const { getDataTwitter, downloadTwitterHigh, downloadTwitterAudio } = require('./funcs/twitter')
@@ -18,6 +21,7 @@ const { pinterest, pinSearch } = require('./funcs/pinterest')
 const { getYoutube, getYoutubeAudio, getYoutubeVideo } = require('./funcs/youtube')
 const { getFacebook, getFacebookNormal, getFacebookAudio } = require('./funcs/facebook')
 const { threadsDownload } = require('./funcs/threads')
+const { universalDownloadInfo, handleUniversalDownload } = require('./funcs/universal')
 const { getAiResponse } = require('./funcs/ai')
 const { googleSearch } = require('./funcs/google')
 const { gitClone } = require('./funcs/github')
@@ -184,6 +188,22 @@ bot.onText(/https?:\/\/(?:www\.)?facebook\.com\/.+/, (msg) => getFacebook(bot, m
 bot.onText(/https?:\/\/(?:www\.)?threads\.net\/.+/, (msg) => threadsDownload(bot, msg.chat.id, getLink(msg.text), msg.from.username));
 bot.onText(/(?:https|git)(?::\/\/|@)github\.com[\/:]([^\/:]+)\/(.+)/i, (msg) => gitClone(bot, msg.chat.id, getLink(msg.text), msg.from.username));
 
+// Universal Fallback for unsupported URLs
+bot.on('message', async (msg) => {
+  if (!msg.text || msg.text.startsWith('/')) return;
+  const link = getLink(msg.text);
+  if (!link) return;
+
+  const knownPatterns = [
+    /tiktok\.com/, /twitter\.com/, /x\.com/, /instagram\.com/, /pinterest\.ca/, /pinterest\.?com/, /pin\.?it/, 
+    /open\.spotify\.com/, /spotify\.?com/, /youtu\.?be/, /youtube\.com/, /facebook\.com/, /threads\.net/, /github\.com/
+  ];
+  const isHandled = knownPatterns.some(p => p.test(msg.text));
+  if (isHandled) return;
+
+  await universalDownloadInfo(bot, msg.chat.id, link, msg.from.username);
+});
+
 // Callback Handling
 bot.on('callback_query', async (mil) => {
   const data = mil.data;
@@ -220,6 +240,8 @@ bot.on('callback_query', async (mil) => {
   if (data.startsWith('tourl1')) await telegraphUpload(bot, chatId, url, userName); // Kept from original
   if (data.startsWith('tourl2')) await Pomf2Upload(bot, chatId, url, userName);
   if (data.startsWith('ocr')) await Ocr(bot, chatId, url, userName);
+  if (data.startsWith('univ_v')) await handleUniversalDownload(bot, chatId, url, 'video');
+  if (data.startsWith('univ_a')) await handleUniversalDownload(bot, chatId, url, 'audio');
 });
 
 process.on('uncaughtException', console.error);

@@ -285,5 +285,7 @@ module.exports = {
   getMetadata,
   getCookieString,
   getCookieJSON,
-  USER_AGENT
+  USER_AGENT,
+  ensureYtDlpBinary,
+  getCookiesArgs
 };
