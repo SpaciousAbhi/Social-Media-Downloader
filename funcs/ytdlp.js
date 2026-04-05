@@ -98,7 +98,12 @@ try {
 }
 
 function safeName(name) {
-  return String(name || 'download').replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 120);
+  // Strip illegal chars and truncate to 50 chars (inspired by ReClip logic)
+  return String(name || 'download')
+    .replace(/[^\w\s.-]/gi, '')
+    .trim()
+    .slice(0, 50)
+    .replace(/\s+/g, '_');
 }
 
 async function ensureYtDlpBinary() {
@@ -210,9 +215,9 @@ async function downloadWithYtDlp(url, mode /* 'video'|'audio' */, onProgress, cu
   if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
 
   const id = Math.random().toString(36).substring(7);
-  const tmpl = path.join(outDir, `ytdlp_${id}_%(title).100s.%(ext)s`);
+  const tmpl = path.join(outDir, `ytdlp_${id}_%(title).50s.%(ext)s`);
 
-  let args = ['--no-playlist', '--user-agent', USER_AGENT];
+  let args = ['--no-playlist', '--user-agent', USER_AGENT, '--no-mtime', '--add-metadata'];
   if (mode === 'audio') {
     args.push('-x', '--audio-format', 'mp3', '--audio-quality', '0');
   } else if (url.includes('youtube.com') || url.includes('youtu.be')) {
@@ -222,7 +227,7 @@ async function downloadWithYtDlp(url, mode /* 'video'|'audio' */, onProgress, cu
         '--no-warnings'
     );
   } else {
-    args.push('-f', 'best', '--no-warnings');
+    args.push('-f', 'bestvideo+bestaudio/best', '--merge-output-format', 'mp4', '--no-warnings');
   }
   args.push('-o', tmpl, url);
 
