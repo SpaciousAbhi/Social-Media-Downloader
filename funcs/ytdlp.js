@@ -236,22 +236,33 @@ async function downloadWithYtDlp(url, mode /* 'video'|'audio' */, onProgress, cu
   const wrapper = new YtDlpWrap(bin);
   
   return new Promise((resolve, reject) => {
-    wrapper.exec([...cookiesArgs, ...args])
-      .on('progress', (p) => {
-        if (onProgress) onProgress(p);
-      })
-      .on('error', reject)
-      .on('close', () => {
-          // Find the file we just downloaded
-          const prefix = `ytdlp_${id}_`;
-          const files = fs.readdirSync(outDir)
-            .filter(f => f.startsWith(prefix))
-            .map(f => ({ f, p: path.join(outDir, f), m: fs.statSync(path.join(outDir, f)).mtimeMs }))
-            .sort((a, b) => b.m - a.m);
-
-          if (!files[0]) reject(new Error('Download produced no file'));
-          else resolve(files[0].p);
-      });
+    const runWrapper = (currentArgs) => {
+        wrapper.exec([...cookiesArgs, ...currentArgs])
+          .on('progress', (p) => {
+            if (onProgress) onProgress(p);
+          })
+          .on('error', (err) => {
+            if (err.message && err.message.includes('Requested format is not available') && currentArgs.includes('-f')) {
+                console.log('Strict format failed, retrying with best available...');
+                const fallbackArgs = currentArgs.map(a => a.startsWith('bestvideo[ext=mp4]') ? 'best' : a).filter(a => a !== '--merge-output-format' && a !== 'mp4');
+                // Re-run with simplified best format
+                runWrapper(fallbackArgs);
+            } else {
+                reject(err);
+            }
+          })
+          .on('close', () => {
+              const prefix = `ytdlp_${id}_`;
+              const files = fs.readdirSync(outDir)
+                .filter(f => f.startsWith(prefix))
+                .map(f => ({ f, p: path.join(outDir, f), m: fs.statSync(path.join(outDir, f)).mtimeMs }))
+                .sort((a, b) => b.m - a.m);
+    
+              if (!files[0]) reject(new Error('Download produced no file'));
+              else resolve(files[0].p);
+          });
+    };
+    runWrapper(args);
   });
 }
 
