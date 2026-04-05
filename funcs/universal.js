@@ -44,11 +44,10 @@ async function universalDownloadInfo(bot, chatId, url, userName) {
         });
         
     } catch (err) {
-        await bot.editMessageText(`❌ *Extraction Failed*\nError: ${err.message}`, {
+        await bot.editMessageText(`❌ Extraction Failed\nError: ${err.message.substring(0, 800)}`, {
             chat_id: chatId,
-            message_id: processingMsg.message_id,
-            parse_mode: 'Markdown'
-        });
+            message_id: processingMsg.message_id
+        }).catch(()=>{});
     }
 }
 
@@ -73,11 +72,10 @@ async function handleUniversalDownload(bot, chatId, url, mode) {
         await bot.deleteMessage(chatId, actionMsg.message_id);
 
     } catch (err) {
-        await bot.editMessageText(`❌ *Download Failed*\nError: ${err.message}`, {
+        await bot.editMessageText(`❌ Download Failed\nError: ${err.message.substring(0, 800)}`, {
             chat_id: chatId,
-            message_id: actionMsg.message_id,
-            parse_mode: 'Markdown'
-        });
+            message_id: actionMsg.message_id
+        }).catch(()=>{});
     }
 }
 
