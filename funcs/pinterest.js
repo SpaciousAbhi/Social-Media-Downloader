@@ -1,28 +1,7 @@
 require('dotenv').config();
 const axios = require('axios');
-const cheerio = require('cheerio');
-const util = require('util');
-
-async function pindl(url) {
-  try {
-    const { data } = await axios.get(url, { headers: {
-				"user-agent": "Mozilla/5.0 (Linux; U; Android 12; in; SM-A015F Build/SP1A.210812.016.A015FXXS5CWB2) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/110.0.0.0 Mobile Safari/537.36"
-			}});
-    const $ = cheerio.load(data);
-    const scriptTag = $('script[data-test-id="video-snippet"]').html() || $('script[data-test-id="leaf-snippet"]').html();
-    if (scriptTag) {
-        const jsonData = JSON.parse(scriptTag);
-        const resultt = jsonData.contentUrl || jsonData.image;
-        return resultt
-    } else {
-      result = "Error: Invalid URL!"
-      return result;
-    }
-  } catch (err) {
-    result = "Error: Invalid URL!"
-    return result;
-  }
-}
+const fs = require('fs');
+const path = require('path');
 
 async function pinSearch(bot, chatId, query, userName) {
   if (!query) return bot.sendMessage(chatId, '[Indonesia]\nGambar apa yang mau kamu cari di pinterest? contoh\n/pin anime\n\n[English]\nWhat images are you looking for on Pinterest? example\n/pin anime');
@@ -40,24 +19,53 @@ async function pinSearch(bot, chatId, query, userName) {
   }
 }
 
+const { downloadWithYtDlp, getMetadata } = require('./ytdlp');
+const { getProgressBar } = require('./progress');
+
 async function pinterest(bot, chatId, url, userName) {
-  let load = await bot.sendMessage(chatId, 'Loading.')
+  let load = await bot.sendMessage(chatId, '🛰 *Initializing Pinterest download...*', { parse_mode: 'Markdown' });
   try {
-    let get = await pindl(url);
-    if (!get) {
-      return bot.editMessageText('Failed to get data, make sure your Pinterest link is valid!', { chat_id: chatId, message_id: load.message_id })
-    } else {
-      if (get.endsWith('.mp4')) {
-        await bot.sendVideo(chatId, get, { caption: `Bot by @Krxuvv` })
-        return bot.deleteMessage(chatId, load.message_id);
-      } else {
-        await bot.sendPhoto(chatId, get, { caption: `Bot by @Krxuvv` })
-        return bot.deleteMessage(chatId, load.message_id);
+    let lastUpdate = 0;
+    const filePath = await downloadWithYtDlp(url, 'video', (p) => {
+      const now = Date.now();
+      if (now - lastUpdate > 2000) {
+        lastUpdate = now;
+        const bar = getProgressBar(p.percent);
+        bot.editMessageText(`📥 *Downloading Pinterest Media...*\n\n${bar}\n\n⚡️ *Speed:* \`${p.currentSpeed || '...'}\`\n⏳ *ETA:* \`${p.eta || '...'}\``, {
+          chat_id: chatId,
+          message_id: load.message_id,
+          parse_mode: 'Markdown'
+        }).catch(() => {});
       }
+    });
+
+    await bot.editMessageText('📤 *Uploading to Telegram...*', { chat_id: chatId, message_id: load.message_id, parse_mode: 'Markdown' });
+    
+    // Check extension to send as photo or video
+    if (filePath.endsWith('.mp4') || filePath.endsWith('.mkv') || filePath.endsWith('.mov')) {
+        await bot.sendChatAction(chatId, 'upload_video');
+        await bot.sendVideo(chatId, filePath, { 
+          caption: `✅ *Success!* Pinterest media ready.\n\n👤 *Requested by:* @${userName || 'user'}\n🤖 *Bot by:* @Krxuvv`,
+          parse_mode: 'Markdown'
+        });
+    } else {
+        await bot.sendChatAction(chatId, 'upload_photo');
+        await bot.sendPhoto(chatId, filePath, { 
+          caption: `✅ *Success!* Pinterest media ready.\n\n👤 *Requested by:* @${userName || 'user'}\n🤖 *Bot by:* @Krxuvv`,
+          parse_mode: 'Markdown'
+        });
     }
+    
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    await bot.deleteMessage(chatId, load.message_id);
   } catch (err) {
-    await bot.sendMessage(String(process.env.DEV_ID), `[ ERROR MESSAGE ]\n\n• Username: @${userName}\n• File: funcs/pinterest.js\n• Function: pinterest()\n• Url: ${url}\n\n${err}`.trim());
-    return bot.editMessageText('Failed to download media, make sure your link is valid!', { chat_id: chatId, message_id: load.message_id })
+    console.error('pinterest error:', err);
+    await bot.sendMessage(String(process.env.DEV_ID), `[ ERROR Pinterest ]\nUser: @${userName}\nUrl: ${url}\nError: ${err.message}`);
+    return bot.editMessageText(`❌ *Pinterest Download Failed*\n\nError: \`${err.message}\``, { 
+      chat_id: chatId, 
+      message_id: load.message_id,
+      parse_mode: 'Markdown' 
+    })
   }
 }
 

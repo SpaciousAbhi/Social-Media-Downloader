@@ -24,8 +24,8 @@ async function getTiktokInfo(bot, chatId, url, userName) {
           parse_mode: 'Markdown',
           reply_markup: JSON.stringify({
             inline_keyboard: [
-              [{ text: '🎬 Video (Best)', callback_data: getCallbackData('ttv', url) }],
-              [{ text: '🎵 Audio (MP3)', callback_data: getCallbackData('tta', url) }]
+              [{ text: '🎬 Video (Best)', callback_data: await getCallbackData('ttv', url) }],
+              [{ text: '🎵 Audio (MP3)', callback_data: await getCallbackData('tta', url) }]
             ]
           })
         };
@@ -36,18 +36,28 @@ async function getTiktokInfo(bot, chatId, url, userName) {
         } else {
             return bot.sendMessage(chatId, caption, options);
         }
-    } else {
-        // It might be a photo carousel
-        if (meta.entries) {
-            for (const entry of meta.entries) {
-                const buff = await getBuffer(entry.url || entry.thumbnail);
-                await bot.sendPhoto(chatId, buff, { caption: `Bot by @Krxuvv` });
+    } else if (meta.entries || meta.formats) {
+        // It's a photo carousel (TikTok often returns these as entries)
+        const entries = meta.entries || [];
+        if (entries.length > 0) {
+            await bot.editMessageText(`📸 *Detected Photo Carousel (${entries.length} images)...*`, { chat_id: chatId, message_id: load.message_id, parse_mode: 'Markdown' });
+            
+            // Group images for sendMediaGroup (Max 10 per group)
+            for (let i = 0; i < entries.length; i += 10) {
+                const chunk = entries.slice(i, i + 10);
+                const mediaGroup = chunk.map(entry => ({
+                    type: 'photo',
+                    media: entry.url || entry.thumbnail
+                }));
+                await bot.sendMediaGroup(chatId, mediaGroup);
             }
         } else {
             const buff = await getBuffer(meta.url || meta.thumbnail);
-            await bot.sendPhoto(chatId, buff, { caption: `Bot by @Krxuvv` });
+            await bot.sendPhoto(chatId, buff, { caption: `✅ *Success!* TikTok content ready.\n🤖 *Bot by:* @Krxuvv`, parse_mode: 'Markdown' });
         }
-        await bot.deleteMessage(chatId, load.message_id);
+        await bot.deleteMessage(chatId, load.message_id).catch(() => {});
+    } else {
+        await bot.editMessageText('❌ *Error:* No downloadable media found.', { chat_id: chatId, message_id: load.message_id });
     }
   } catch (err) {
     console.error('getTiktokInfo error:', err);

@@ -18,8 +18,8 @@ async function getDataTwitter(bot, chatId, url, userName) {
       parse_mode: 'Markdown',
       reply_markup: JSON.stringify({
         inline_keyboard: [
-          [{ text: '🎬 HD Video', callback_data: getCallbackData('twh', url) }],
-          [{ text: '🎵 Audio (MP3)', callback_data: getCallbackData('twa', url) }]
+          [{ text: '🎬 HD Video', callback_data: await getCallbackData('twh', url) }],
+          [{ text: '🎵 Audio (MP3)', callback_data: await getCallbackData('twa', url) }]
         ]
       })
     };

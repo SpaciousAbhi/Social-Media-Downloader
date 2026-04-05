@@ -1,16 +1,8 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
-const { getBuffer } = require('./functions');
+const { getBuffer, getCallbackData } = require('./functions');
 const { downloadWithYtDlp, getMetadata } = require('./ytdlp');
-
-// Helper function to generate callback data (assuming it exists elsewhere or needs to be added)
-function getCallbackData(type, url) {
-  // In a real scenario, you might want to store the URL in a database
-  // and pass an ID, or truncate/encode the URL if it's too long for callback_data.
-  // For this example, we'll just concatenate.
-  return `${type}|${url}`;
-}
 
 async function threadsDownload(bot, chatId, url, userName) {
   let load = await bot.sendMessage(chatId, 'Loading, please wait.');
@@ -30,8 +22,8 @@ async function threadsDownload(bot, chatId, url, userName) {
       parse_mode: 'Markdown',
       reply_markup: JSON.stringify({
         inline_keyboard: [
-          [{ text: '🎬 Video (Best)', callback_data: getCallbackData('thv', url) }],
-          [{ text: '🎵 Audio (MP3)', callback_data: getCallbackData('tha', url) }]
+          [{ text: '🎬 Video (Best)', callback_data: await getCallbackData('thv', url) }],
+          [{ text: '🎵 Audio (MP3)', callback_data: await getCallbackData('tha', url) }]
         ]
       })
     };
@@ -54,6 +46,84 @@ async function threadsDownload(bot, chatId, url, userName) {
   }
 }
 
+const { getProgressBar } = require('./progress');
+
+async function getThreadsVideo(bot, chatId, url, userName) {
+  let load = await bot.sendMessage(chatId, '🛰 *Initializing Threads download...*', { parse_mode: 'Markdown' });
+  try {
+    let lastUpdate = 0;
+    const filePath = await downloadWithYtDlp(url, 'video', (p) => {
+      const now = Date.now();
+      if (now - lastUpdate > 2000) {
+        lastUpdate = now;
+        const bar = getProgressBar(p.percent);
+        bot.editMessageText(`📥 *Downloading Threads Video...*\n\n${bar}\n\n⚡️ *Speed:* \`${p.currentSpeed || '...'}\`\n⏳ *ETA:* \`${p.eta || '...'}\``, {
+          chat_id: chatId,
+          message_id: load.message_id,
+          parse_mode: 'Markdown'
+        }).catch(() => {});
+      }
+    });
+
+    await bot.editMessageText('📤 *Uploading to Telegram...*', { chat_id: chatId, message_id: load.message_id, parse_mode: 'Markdown' });
+    await bot.sendChatAction(chatId, 'upload_video');
+    
+    await bot.sendVideo(chatId, filePath, { 
+      caption: `✅ *Success!* Threads video ready.\n\n👤 *Requested by:* @${userName || 'user'}\n🤖 *Bot by:* @Krxuvv`,
+      parse_mode: 'Markdown'
+    });
+    
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    await bot.deleteMessage(chatId, load.message_id);
+  } catch (err) {
+    console.error('getThreadsVideo error:', err);
+    return bot.editMessageText(`❌ *Threads Download Failed*\n\nError: \`${err.message}\``, { 
+      chat_id: chatId, 
+      message_id: load.message_id,
+      parse_mode: 'Markdown' 
+    })
+  }
+}
+
+async function getThreadsAudio(bot, chatId, url, userName) {
+  let load = await bot.sendMessage(chatId, '🛰 *Initializing audio conversion...*', { parse_mode: 'Markdown' });
+  try {
+    let lastUpdate = 0;
+    const filePath = await downloadWithYtDlp(url, 'audio', (p) => {
+      const now = Date.now();
+      if (now - lastUpdate > 2000) {
+        lastUpdate = now;
+        const bar = getProgressBar(p.percent);
+        bot.editMessageText(`📥 *Downloading & Converting Audio...*\n\n${bar}\n\n⚡️ *Speed:* \`${p.currentSpeed || '...'}\`\n⏳ *ETA:* \`${p.eta || '...'}\``, {
+          chat_id: chatId,
+          message_id: load.message_id,
+          parse_mode: 'Markdown'
+        }).catch(() => {});
+      }
+    });
+
+    await bot.editMessageText('📤 *Uploading to Telegram...*', { chat_id: chatId, message_id: load.message_id, parse_mode: 'Markdown' });
+    await bot.sendChatAction(chatId, 'upload_audio');
+    
+    await bot.sendAudio(chatId, filePath, { 
+      caption: `✅ *Success!* Threads audio ready.\n\n👤 *Requested by:* @${userName || 'user'}\n🤖 *Bot by:* @Krxuvv`,
+      parse_mode: 'Markdown'
+    });
+    
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    await bot.deleteMessage(chatId, load.message_id);
+  } catch (err) {
+    console.error('getThreadsAudio error:', err);
+    return bot.editMessageText(`❌ *Threads Audio Download Failed*\n\nError: \`${err.message}\``, { 
+      chat_id: chatId, 
+      message_id: load.message_id,
+      parse_mode: 'Markdown' 
+    })
+  }
+}
+
 module.exports = {
-  threadsDownload
+  threadsDownload,
+  getThreadsVideo,
+  getThreadsAudio
 }

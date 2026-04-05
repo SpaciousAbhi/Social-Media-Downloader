@@ -20,8 +20,16 @@ const { googleSearch } = require('./funcs/google')
 const { gitClone } = require('./funcs/github')
 const { getNetworkUploadSpeed, getNetworkDownloadSpeed, evaluateBot, executeBot } = require('./funcs/dev')
 const { telegraphUpload, Pomf2Upload, Ocr } = require('./funcs/images')
-const { readDb, writeDb, addUserDb } = require('./funcs/database');
-const { getBuffer, resolveUrl, getBanned } = require('./funcs/functions');
+const { addUserDb, getAllUsers } = require('./funcs/database');
+const { getBuffer, resolveUrl, getBanned, getCallbackData } = require('./funcs/functions');
+const { connectDB } = require('./funcs/mongodb');
+
+// Helper to extract first URL from text
+function getLink(text) {
+  if (!text) return null;
+  const match = text.match(/https?:\/\/[^\s\n]+/i);
+  return match ? match[0] : null;
+}
 
 // Ensure necessary directories exist
 ;['content', 'images'].forEach(dir => {
@@ -36,6 +44,28 @@ if (!token) {
 }
 
 const bot = new TelegramBot(token, { polling: true })
+
+// Initialize MongoDB
+connectDB().then(() => {
+  console.log('MongoDB Initialized');
+  
+  // Restart Notification
+  const adminId = process.env.DEV_ID;
+  if (adminId) {
+    bot.sendMessage(adminId, `🚀 *Bot Restarted*\nTime: \`${new Date().toLocaleString()}\`\nStatus: Operational ✅`, { parse_mode: 'Markdown' });
+  }
+
+  // Notify Users (Optional broadcast)
+  if (process.env.NOTIFY_RESTART === 'true') {
+    getAllUsers('./database.json').then(users => {
+      users.forEach(chatId => {
+        if (chatId !== adminId) {
+          bot.sendMessage(chatId, `✨ *Bot is Online!*\nWe are back up and running. Thank you for your patience! 🚀`, { parse_mode: 'Markdown' }).catch(() => {});
+        }
+      });
+    });
+  }
+});
 
 // Middleware / Express Status
 app.get('/', (req, res) => {
@@ -95,8 +125,7 @@ bot.on('photo', async (msg) => {
 
 bot.onText(/\/start/, async (msg) => {
   const chatId = msg.chat.id;
-  let db = await readDb('./database.json');
-  if (!db[chatId]) await addUserDb(chatId, './database.json');
+  await addUserDb(chatId, './database.json');
   
   const welcome = `✨ *WELCOME TO ${process.env.BOT_NAME || 'MEDIA DOWN-BOT'}* ✨\n\n` +
                   `I am your ultimate companion for downloading content from all your favorite platforms! 🚀\n\n` +
@@ -135,19 +164,20 @@ bot.onText(/\/google (.+)/, (msg, match) => googleSearch(bot, msg.chat.id, match
 bot.onText(/^(\/(pin|pinterest)) (.+)/, (msg, match) => pinSearch(bot, msg.chat.id, match[3], msg.from.username));
 
 // Platform Regex
-bot.onText(/https?:\/\/(?:.*\.)?tiktok\.com/, (msg) => getTiktokInfo(bot, msg.chat.id, msg.text, msg.from.username));
-bot.onText(/https?:\/\/(?:.*\.)?(twitter\.com|x\.com)/, (msg) => getDataTwitter(bot, msg.chat.id, msg.text, msg.from.username));
-bot.onText(/(https?:\/\/)?(www\.)?(instagram\.com)\/.+/, (msg) => downloadInstagram(bot, msg.chat.id, msg.text, msg.from.username));
-bot.onText(/(https?:\/\/)?(www\.)?(pinterest\.ca|pinterest\.?com|pin\.?it)\/.+/, (msg) => pinterest(bot, msg.chat.id, msg.text, msg.from.username));
+bot.onText(/https?:\/\/(?:.*\.)?tiktok\.com/, (msg) => getTiktokInfo(bot, msg.chat.id, getLink(msg.text), msg.from.username));
+bot.onText(/https?:\/\/(?:.*\.)?(twitter\.com|x\.com)/, (msg) => getDataTwitter(bot, msg.chat.id, getLink(msg.text), msg.from.username));
+bot.onText(/(https?:\/\/)?(www\.)?(instagram\.com)\/.+/, (msg) => downloadInstagram(bot, msg.chat.id, getLink(msg.text), msg.from.username));
+bot.onText(/(https?:\/\/)?(www\.)?(pinterest\.ca|pinterest\.?com|pin\.?it)\/.+/, (msg) => pinterest(bot, msg.chat.id, getLink(msg.text), msg.from.username));
 bot.onText(/(https?:\/\/)?(www\.)?(open\.spotify\.com|spotify\.?com)\/(track|album|playlist)\/.+/, (msg, match) => {
-  if (match[4] === 'track') return getSpotifySong(bot, msg.chat.id, match[0], msg.from.username);
-  if (match[4] === 'album') return getAlbumsSpotify(bot, msg.chat.id, match[0], msg.from.username);
-  return getPlaylistSpotify(bot, msg.chat.id, match[0], msg.from.username);
+  const url = getLink(msg.text);
+  if (match[4] === 'track') return getSpotifySong(bot, msg.chat.id, url, msg.from.username);
+  if (match[4] === 'album') return getAlbumsSpotify(bot, msg.chat.id, url, msg.from.username);
+  return getPlaylistSpotify(bot, msg.chat.id, url, msg.from.username);
 });
-bot.onText(/https?:\/\/(?:www\.)?youtu\.?be(?:\.com)?\/.+/, (msg) => getYoutube(bot, msg.chat.id, msg.text, msg.from.username));
-bot.onText(/https?:\/\/(?:www\.)?facebook\.com\/.+/, (msg) => getFacebook(bot, msg.chat.id, msg.text, msg.from.username));
-bot.onText(/https?:\/\/(?:www\.)?threads\.net\/.+/, (msg) => threadsDownload(bot, msg.chat.id, msg.text, msg.from.username));
-bot.onText(/(?:https|git)(?::\/\/|@)github\.com[\/:]([^\/:]+)\/(.+)/i, (msg) => gitClone(bot, msg.chat.id, msg.text, msg.from.username));
+bot.onText(/https?:\/\/(?:www\.)?youtu\.?be(?:\.com)?\/.+/, (msg) => getYoutube(bot, msg.chat.id, getLink(msg.text), msg.from.username));
+bot.onText(/https?:\/\/(?:www\.)?facebook\.com\/.+/, (msg) => getFacebook(bot, msg.chat.id, getLink(msg.text), msg.from.username));
+bot.onText(/https?:\/\/(?:www\.)?threads\.net\/.+/, (msg) => threadsDownload(bot, msg.chat.id, getLink(msg.text), msg.from.username));
+bot.onText(/(?:https|git)(?::\/\/|@)github\.com[\/:]([^\/:]+)\/(.+)/i, (msg) => gitClone(bot, msg.chat.id, getLink(msg.text), msg.from.username));
 
 // Callback Handling
 bot.on('callback_query', async (mil) => {
@@ -155,7 +185,11 @@ bot.on('callback_query', async (mil) => {
   const chatId = mil.message.chat.id;
   const msgid = mil.message.message_id;
   const userName = mil.from.username || mil.from.first_name || 'user';
-  const url = resolveUrl(data);
+  const url = await resolveUrl(data);
+
+  if (!url && data.includes('cache:')) {
+    return bot.sendMessage(chatId, `❌ *Session Expired*\nPlease send the link again to refresh the downpgrade buttons.`, { parse_mode: 'Markdown' });
+  }
 
   await bot.deleteMessage(chatId, msgid);
 
@@ -168,10 +202,16 @@ bot.on('callback_query', async (mil) => {
   if (data.startsWith('spt')) await getSpotifySong(bot, chatId, url, userName); // Kept from original
   if (data.startsWith('fbn')) await getFacebookNormal(bot, chatId, userName, url);
   if (data.startsWith('fba')) await getFacebookAudio(bot, chatId, userName, url);
-  if (data.startsWith('thv')) await threadsDownload(bot, chatId, url, userName);
-  if (data.startsWith('tha')) await threadsDownload(bot, chatId, url, userName);
   if (data.startsWith('ytdlpv')) await getYoutubeVideo(bot, chatId, url, null, userName);
   if (data.startsWith('ytdlpa')) await getYoutubeAudio(bot, chatId, url, null, userName);
+  if (data.startsWith('thv')) {
+      const { getThreadsVideo } = require('./funcs/threads');
+      await (getThreadsVideo || threadsDownload)(bot, chatId, url, userName);
+  }
+  if (data.startsWith('tha')) {
+      const { getThreadsAudio } = require('./funcs/threads');
+      await (getThreadsAudio || threadsDownload)(bot, chatId, url, userName);
+  }
   if (data.startsWith('tourl1')) await telegraphUpload(bot, chatId, url, userName); // Kept from original
   if (data.startsWith('tourl2')) await Pomf2Upload(bot, chatId, url, userName);
   if (data.startsWith('ocr')) await Ocr(bot, chatId, url, userName);

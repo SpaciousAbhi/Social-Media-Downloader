@@ -43,8 +43,8 @@ async function getYoutube(bot, chatId, url, userName) {
       parse_mode: 'Markdown',
       reply_markup: {
         inline_keyboard: [
-          [{ text: '🎬 Video (Best)', callback_data: getCallbackData('ytdlpv', url) }],
-          [{ text: '🎵 Audio (MP3)', callback_data: getCallbackData('ytdlpa', url) }],
+          [{ text: '🎬 Video (Best)', callback_data: await getCallbackData('ytdlpv', url) }],
+          [{ text: '🎵 Audio (MP3)', callback_data: await getCallbackData('ytdlpa', url) }],
         ],
       },
     }

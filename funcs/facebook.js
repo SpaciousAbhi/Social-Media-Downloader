@@ -17,8 +17,8 @@ async function getFacebook(bot, chatId, url, userName) {
       parse_mode: 'Markdown',
       reply_markup: JSON.stringify({
         inline_keyboard: [
-          [{ text: '🎬 Video (Best)', callback_data: getCallbackData('fbn', url) }],
-          [{ text: '🎵 Audio (MP3)', callback_data: getCallbackData('fba', url) }]
+          [{ text: '🎬 Video (Best)', callback_data: await getCallbackData('fbn', url) }],
+          [{ text: '🎵 Audio (MP3)', callback_data: await getCallbackData('fba', url) }]
         ]
       })
     };
