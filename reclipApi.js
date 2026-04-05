@@ -117,6 +117,11 @@ async function runDownload(job_id, url, format_choice, format_id) {
         const bin = await ensureYtDlpBinary();
         let cmd = [...getCookiesArgs(), '--no-playlist', '-o', out_template];
 
+        try {
+            const ffmpegPath = require('ffmpeg-static');
+            if (ffmpegPath) cmd.push('--ffmpeg-location', ffmpegPath);
+        } catch (e) {}
+
         if (format_choice === 'audio') {
             cmd.push('-x', '--audio-format', 'mp3');
         } else if (format_id) {

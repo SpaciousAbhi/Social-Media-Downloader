@@ -10,10 +10,13 @@ async function universalDownloadInfo(bot, chatId, url, userName) {
         let title = metadata.title || 'Unknown Media';
         if (title.length > 50) title = title.substring(0, 47) + '...';
         
-        const caption = `🎯 *Universal Downloader*\n\n` +
-                        `📝 *Title:* ${title}\n` +
-                        (metadata.uploader ? `👤 *Author:* ${metadata.uploader}\n` : '') +
-                        (metadata.duration ? `⏱ *Duration:* ${Math.floor(metadata.duration / 60)}:${('0'+Math.floor(metadata.duration % 60)).slice(-2)}\n` : '');
+        title = title.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const uploader = metadata.uploader ? metadata.uploader.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : '';
+        
+        const caption = `🎯 <b>Universal Downloader</b>\n\n` +
+                        `📝 <b>Title:</b> ${title}\n` +
+                        (uploader ? `👤 <b>Author:</b> ${uploader}\n` : '') +
+                        (metadata.duration ? `⏱ <b>Duration:</b> ${Math.floor(metadata.duration / 60)}:${('0'+Math.floor(metadata.duration % 60)).slice(-2)}\n` : '');
 
         const inline_keyboard = [];
         const videoData = await getCallbackData('univ_v', url);
@@ -28,7 +31,7 @@ async function universalDownloadInfo(bot, chatId, url, userName) {
             try {
                 await bot.sendPhoto(chatId, metadata.thumbnail, {
                     caption: caption,
-                    parse_mode: 'Markdown',
+                    parse_mode: 'HTML',
                     reply_markup: JSON.stringify({ inline_keyboard })
                 });
                 return;
@@ -36,7 +39,7 @@ async function universalDownloadInfo(bot, chatId, url, userName) {
         }
         
         await bot.sendMessage(chatId, caption, {
-            parse_mode: 'Markdown',
+            parse_mode: 'HTML',
             reply_markup: JSON.stringify({ inline_keyboard })
         });
         

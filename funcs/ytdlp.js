@@ -218,6 +218,14 @@ async function downloadWithYtDlp(url, mode /* 'video'|'audio' */, onProgress, cu
   const tmpl = path.join(outDir, `ytdlp_${id}_%(title).50s.%(ext)s`);
 
   let args = ['--no-playlist', '--user-agent', USER_AGENT, '--no-mtime', '--add-metadata'];
+  
+  try {
+      const ffmpegPath = require('ffmpeg-static');
+      if (ffmpegPath) args.push('--ffmpeg-location', ffmpegPath);
+  } catch (e) {
+      console.log('ffmpeg-static not found/loaded, proceeding without explicit path');
+  }
+
   if (mode === 'audio') {
     args.push('-x', '--audio-format', 'mp3', '--audio-quality', '0');
   } else {
