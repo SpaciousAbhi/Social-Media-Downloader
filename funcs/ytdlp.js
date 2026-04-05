@@ -220,12 +220,6 @@ async function downloadWithYtDlp(url, mode /* 'video'|'audio' */, onProgress, cu
   let args = ['--no-playlist', '--user-agent', USER_AGENT, '--no-mtime', '--add-metadata'];
   if (mode === 'audio') {
     args.push('-x', '--audio-format', 'mp3', '--audio-quality', '0');
-  } else if (url.includes('youtube.com') || url.includes('youtu.be')) {
-    args.push(
-        '-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best/best',
-        '--merge-output-format', 'mp4',
-        '--no-warnings'
-    );
   } else {
     args.push('-f', 'bestvideo+bestaudio/best', '--merge-output-format', 'mp4', '--no-warnings');
   }

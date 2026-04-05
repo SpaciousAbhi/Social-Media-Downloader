@@ -183,8 +183,8 @@ bot.onText(/(https?:\/\/)?(www\.)?(open\.spotify\.com|spotify\.?com)\/(track|alb
   if (match[4] === 'album') return getAlbumsSpotify(bot, msg.chat.id, url, msg.from.username);
   return getPlaylistSpotify(bot, msg.chat.id, url, msg.from.username);
 });
-bot.onText(/https?:\/\/(?:www\.)?youtu\.?be(?:\.com)?\/.+/, (msg) => getYoutube(bot, msg.chat.id, getLink(msg.text), msg.from.username));
-bot.onText(/https?:\/\/(?:www\.)?facebook\.com\/.+/, (msg) => getFacebook(bot, msg.chat.id, getLink(msg.text), msg.from.username));
+// bot.onText(/https?:\/\/(?:www\.)?youtu\.?be(?:\.com)?\/.+/, (msg) => getYoutube(bot, msg.chat.id, getLink(msg.text), msg.from.username));
+// bot.onText(/https?:\/\/(?:www\.)?facebook\.com\/.+/, (msg) => getFacebook(bot, msg.chat.id, getLink(msg.text), msg.from.username));
 bot.onText(/https?:\/\/(?:www\.)?threads\.net\/.+/, (msg) => threadsDownload(bot, msg.chat.id, getLink(msg.text), msg.from.username));
 bot.onText(/(?:https|git)(?::\/\/|@)github\.com[\/:]([^\/:]+)\/(.+)/i, (msg) => gitClone(bot, msg.chat.id, getLink(msg.text), msg.from.username));
 
@@ -196,7 +196,7 @@ bot.on('message', async (msg) => {
 
   const knownPatterns = [
     /tiktok\.com/, /twitter\.com/, /x\.com/, /instagram\.com/, /pinterest\.ca/, /pinterest\.?com/, /pin\.?it/, 
-    /open\.spotify\.com/, /spotify\.?com/, /youtu\.?be/, /youtube\.com/, /facebook\.com/, /threads\.net/, /github\.com/
+    /open\.spotify\.com/, /spotify\.?com/, /threads\.net/, /github\.com/
   ];
   const isHandled = knownPatterns.some(p => p.test(msg.text));
   if (isHandled) return;
