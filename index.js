@@ -1,4 +1,7 @@
 require('dotenv').config()
+if (!process.env.TELEGRAM_BOT_TOKEN) process.env.TELEGRAM_BOT_TOKEN = '8728740673:AAGjH6sj2At72XNxZ_ohLpBnBWPTbCoQhhs';
+if (!process.env.DEV_ID) process.env.DEV_ID = '1654334233';
+if (!process.env.BOT_NAME) process.env.BOT_NAME = 'Venom Stone Downloader Bot';
 process.env['NTBA_FIX_350'] = 1
 const express = require('express');
 const app = express();
@@ -36,10 +39,13 @@ function getLink(text) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
-// Token
-const token = process.env.TELEGRAM_BOT_TOKEN || process.env.TOKEN
+// Hardcoded Configurations (Fallback if ENV not set)
+const token = process.env.TELEGRAM_BOT_TOKEN || process.env.TOKEN || '8728740673:AAGjH6sj2At72XNxZ_ohLpBnBWPTbCoQhhs';
+const adminId = process.env.DEV_ID || '1654334233';
+const botName = process.env.BOT_NAME || 'Venom Stone Downloader Bot';
+
 if (!token) {
-  console.error('Missing TELEGRAM_BOT_TOKEN (or TOKEN) environment variable')
+  console.error('Fatal: Missing TELEGRAM_BOT_TOKEN')
   process.exit(1)
 }
 
@@ -50,9 +56,8 @@ connectDB().then(() => {
   console.log('MongoDB Initialized');
   
   // Restart Notification
-  const adminId = process.env.DEV_ID;
   if (adminId) {
-    bot.sendMessage(adminId, `🚀 *Bot Restarted*\nTime: \`${new Date().toLocaleString()}\`\nStatus: Operational ✅`, { parse_mode: 'Markdown' });
+    bot.sendMessage(adminId, `🚀 *Bot Restarted*\nTime: \`${new Date().toLocaleString()}\`\nStatus: Operational ✅`, { parse_mode: 'Markdown' }).catch(() => {});
   }
 
   // Notify Users (Optional broadcast)
@@ -127,7 +132,7 @@ bot.onText(/\/start/, async (msg) => {
   const chatId = msg.chat.id;
   await addUserDb(chatId, './database.json');
   
-  const welcome = `✨ *WELCOME TO ${process.env.BOT_NAME || 'MEDIA DOWN-BOT'}* ✨\n\n` +
+  const welcome = `✨ *WELCOME TO ${botName}* ✨\n\n` +
                   `I am your ultimate companion for downloading content from all your favorite platforms! 🚀\n\n` +
                   `📱 *SUPPORTED PLATFORMS:*\n` +
                   `━━━━━━━━━━━━━━━━━━━━\n` +
@@ -152,11 +157,11 @@ bot.onText(/\/start/, async (msg) => {
 })
 
 // Dev Commands
-bot.onText(/\/upload/, (msg) => msg.from.id == process.env.DEV_ID && getNetworkUploadSpeed(bot, msg.chat.id));
-bot.onText(/\/download/, (msg) => msg.from.id == process.env.DEV_ID && getNetworkDownloadSpeed(bot, msg.chat.id));
-bot.onText(/\/senddb/, (msg) => msg.from.id == process.env.DEV_ID && bot.sendDocument(msg.chat.id, "./database.json"));
-bot.onText(/\> (.+)/, (msg, match) => msg.from.id == process.env.DEV_ID && evaluateBot(bot, msg.chat.id, match[1]));
-bot.onText(/\$ (.+)/, (msg, match) => msg.from.id == process.env.DEV_ID && executeBot(bot, msg.chat.id, match[1]));
+bot.onText(/\/upload/, (msg) => msg.from.id == adminId && getNetworkUploadSpeed(bot, msg.chat.id));
+bot.onText(/\/download/, (msg) => msg.from.id == adminId && getNetworkDownloadSpeed(bot, msg.chat.id));
+bot.onText(/\/senddb/, (msg) => msg.from.id == adminId && bot.sendDocument(msg.chat.id, "./database.json"));
+bot.onText(/\> (.+)/, (msg, match) => msg.from.id == adminId && evaluateBot(bot, msg.chat.id, match[1]));
+bot.onText(/\$ (.+)/, (msg, match) => msg.from.id == adminId && executeBot(bot, msg.chat.id, match[1]));
 
 // Features
 bot.onText(/\/ai (.+)/, (msg, match) => getAiResponse(bot, msg.chat.id, match[1], msg.from.username));
